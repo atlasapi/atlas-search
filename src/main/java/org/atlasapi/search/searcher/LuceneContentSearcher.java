@@ -77,7 +77,6 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 	private final SimpleFSDirectory itemsDir = goAheadMakeMyDir(itemsDirFile);
 
 	public LuceneContentSearcher() {
-		System.out.println("searcher");
 		try {
 			formatDirectory(brandsDir);
 			formatDirectory(itemsDir);
