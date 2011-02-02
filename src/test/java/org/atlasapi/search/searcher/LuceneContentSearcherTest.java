@@ -14,7 +14,6 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.searcher;
 
-import static com.metabroadcast.common.query.Selection.ALL;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -28,11 +27,17 @@ import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentListener;
+import org.atlasapi.persistence.content.ContentListener.ChangeType;
 import org.atlasapi.search.model.SearchResults;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.metabroadcast.common.query.Selection;
 
 public class LuceneContentSearcherTest extends TestCase {
+	
+	private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
 	
 	Brand dragonsDen = brand("/den", "Dragon's den");
 	Brand theCityGardener = brand("/garden", "The City Gardener");
@@ -69,57 +74,68 @@ public class LuceneContentSearcherTest extends TestCase {
 	}
 	
 	public void testFindingBrandsByTitle() throws Exception {
-		check(searcher.search("Aprentice", ALL), theApprentice);
-		check(searcher.search("den", ALL), dragonsDen, theJackDeeShow);
-		check(searcher.search("dragon", ALL), dragonsDen);
-		check(searcher.search("dragons", ALL), dragonsDen);
-		check(searcher.search("drag den", ALL), dragonsDen);
-		check(searcher.search("drag", ALL), dragonsDen, euromillionsDraw);
-		check(searcher.search("dragon's den", ALL), dragonsDen);
-		check(searcher.search("eastenders", ALL),  eastenders);
-		check(searcher.search("easteners", ALL),  eastenders);
-		check(searcher.search("eastedners", ALL),  eastenders);
-		check(searcher.search("politics east", ALL),  politicsEast);
-		check(searcher.search("eas", ALL),  eastenders, politicsEast);
-		check(searcher.search("east", ALL),  eastenders, politicsEast);
-		check(searcher.search("end", ALL));
-		check(searcher.search("peep show", ALL),  peepShow);
-		check(searcher.search("peep s", ALL),  peepShow);
-		check(searcher.search("dee", ALL),  theJackDeeShow, dragonsDen);
-		check(searcher.search("show", ALL),  peepShow, politicsEast, theJackDeeShow);
-		check(searcher.search("jack show", ALL),  theJackDeeShow);
-		check(searcher.search("the jack dee s", ALL),  theJackDeeShow);
-		check(searcher.search("dee show", ALL),  theJackDeeShow);
-		check(searcher.search("hav i got news", ALL),  haveIGotNewsForYou);
-		check(searcher.search("brasseye", ALL),  brasseye);
-		check(searcher.search("braseye", ALL),  brasseye);
-		check(searcher.search("brassey", ALL),  brasseye);
-		check(searcher.search("The Story of Science Power Proof and Passion", ALL),  science);
-		check(searcher.search("The Story of Science: Power, Proof and Passion", ALL),  science);
+		check(searcher.search(title("Aprentice")), theApprentice);
+		check(searcher.search(title("den")), dragonsDen, theJackDeeShow);
+		check(searcher.search(title("dragon")), dragonsDen);
+		check(searcher.search(title("dragons")), dragonsDen);
+		check(searcher.search(title("drag den")), dragonsDen);
+		check(searcher.search(title("drag")), dragonsDen, euromillionsDraw);
+		check(searcher.search(title("dragon's den")), dragonsDen);
+		check(searcher.search(title("eastenders")),  eastenders);
+		check(searcher.search(title("easteners")),  eastenders);
+		check(searcher.search(title("eastedners")),  eastenders);
+		check(searcher.search(title("politics east")),  politicsEast);
+		check(searcher.search(title("eas")),  eastenders, politicsEast);
+		check(searcher.search(title("east")),  eastenders, politicsEast);
+		check(searcher.search(title("end")));
+		check(searcher.search(title("peep show")),  peepShow);
+		check(searcher.search(title("peep s")),  peepShow);
+		check(searcher.search(title("dee")),  theJackDeeShow, dragonsDen);
+		check(searcher.search(title("show")),  peepShow, politicsEast, theJackDeeShow);
+		check(searcher.search(title("jack show")),  theJackDeeShow);
+		check(searcher.search(title("the jack dee s")),  theJackDeeShow);
+		check(searcher.search(title("dee show")),  theJackDeeShow);
+		check(searcher.search(title("hav i got news")),  haveIGotNewsForYou);
+		check(searcher.search(title("brasseye")),  brasseye);
+		check(searcher.search(title("braseye")),  brasseye);
+		check(searcher.search(title("brassey")),  brasseye);
+		check(searcher.search(title("The Story of Science Power Proof and Passion")),  science);
+		check(searcher.search(title("The Story of Science: Power, Proof and Passion")),  science);
+	}
+	
+	private SearchQuery title(String term) {
+		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS);
+	}
+
+	public void testLimitingToPublishers() throws Exception {
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE))), eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE))));
+		
+		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
+		east.setTitle("east");
+		searcher.brandChanged(ImmutableList.of(east), ChangeType.BOOTSTRAP);
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE))), east);
 	}
 	
 	public void testUsesPrefixSearchForShortSearches() throws Exception {
-		check(searcher.search("D", ALL),  dragonsDen);
-		check(searcher.search("Dr", ALL),  dragonsDen);
-		check(searcher.search("a", ALL));
+		check(searcher.search(title("D")),  dragonsDen);
+		check(searcher.search(title("Dr")),  dragonsDen);
+		check(searcher.search(title("a")));
 	}
 	
 	public void testLimitAndOffset() throws Exception {
-		check(searcher.search("eas", ALL),  eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS)),  eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(1), ALL_PUBLISHERS)),  eastenders);
+		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(1), ALL_PUBLISHERS)),  politicsEast);
+	}
 
-	}
-	
-	public void testFindingItemsByTitle() throws Exception {
-//		check(searcher.itemTitleSearch("cats", ALL),  englishForCats);
-//		check(searcher.itemTitleSearch("u2", ALL),  u2);
-	}
 	
 	public void testUpdateByType() throws Exception {
 		Brand dragonsDenV2 = brand("/den", "Dragon's den Version 2");
 		
-		check(searcher.search("dragon", ALL),  dragonsDen);
+		check(searcher.search(title("dragon")),  dragonsDen);
 		searcher.brandChanged(Lists.newArrayList(dragonsDenV2), ContentListener.ChangeType.CONTENT_UPDATE);
-		check(searcher.search("dragon", ALL),  dragonsDen);
+		check(searcher.search(title("dragon")),  dragonsDen);
 	}
 
 	private void check(SearchResults result, Identified... content) {

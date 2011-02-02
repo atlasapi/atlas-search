@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -29,11 +30,14 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
@@ -41,7 +45,9 @@ import org.apache.lucene.store.SimpleFSDirectory;
 import org.apache.lucene.store.SingleInstanceLockFactory;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Container;
+import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentListener;
 import org.atlasapi.search.model.SearchResults;
 
@@ -59,6 +65,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 	
 	static final String FIELD_TITLE_FLATTENED = "title-flattened";
 	static final String FIELD_CONTENT_TITLE = "title";
+	static final String FIELD_CONTENT_PUBLISHER = "publisher";
 	private static final String FIELD_CONTENT_URI = "contentUri";
 	
 	private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
@@ -112,29 +119,34 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 		return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
 	}
 
-	private Document brandToDoc(Container<?> brand) {
-		return asDocument(brand.getCanonicalUri(), brand.getTitle());
-	}
-	
-	private Document itemToDoc(Item item) {
-		return asDocument(item.getCanonicalUri(), item.getTitle());
-	}
 
-	private Document asDocument(String uri, String title) {
-		if (Strings.isNullOrEmpty(uri) || Strings.isNullOrEmpty(title)) {
+	private Document asDocument(Content content) {
+		if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
 			return null;
 		}
-		
 		Document doc = new Document();
-        doc.add(new Field(FIELD_CONTENT_TITLE, title, Field.Store.NO, Field.Index.ANALYZED));
-        doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(title), Field.Store.NO, Field.Index.ANALYZED));
-        doc.add(new Field(FIELD_CONTENT_URI, uri, Field.Store.YES,  Field.Index.NOT_ANALYZED));
+        doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
+        doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
+        doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
+        doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
         return doc;
 	}
 	
 	@Override
-	public SearchResults search(String q, Selection selection) {
-		return new SearchResults(search(searcherFor(brandsDir), titleQueryBuilder.build(q), selection));
+	public SearchResults search(SearchQuery q) {
+		BooleanQuery titleAndPublisher = new BooleanQuery();
+		titleAndPublisher.add(titleQueryBuilder.build(q.getTerm()), Occur.MUST);
+		titleAndPublisher.add(publisherQuery(q.getIncludedPublishers()), Occur.MUST);
+		return new SearchResults(search(searcherFor(brandsDir), titleAndPublisher, q.getSelection()));
+	}
+
+	private Query publisherQuery(Set<Publisher> includedPublishers) {
+		BooleanQuery publisherQuery = new BooleanQuery();
+		for (Publisher publisher : includedPublishers) {
+			publisherQuery.add(new TermQuery(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString())), Occur.SHOULD);
+		}
+		return publisherQuery;
+
 	}
 
 	public List<String> itemTitleSearch(String queryString, Selection selection) {
@@ -209,7 +221,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 			writer = writerFor(brandsDir);
 			writer.setWriteLockTimeout(5000);
 			for (Container<?> brand : brands) {
-				Document doc = brandToDoc(brand);
+				Document doc = asDocument(brand);
 				if (doc != null) {
 					if (changeType == ContentListener.ChangeType.BOOTSTRAP) {
 						writer.addDocument(doc);
@@ -219,7 +231,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 					}
 				}
 				else {
-					log.info("Brand with title " + brand.getTitle() + " and uri " + brand.getCanonicalUri() + " not added due to null elements");
+					log.info("Content with title " + brand.getTitle() + " and uri " + brand.getCanonicalUri() + " not added due to null elements");
 				}
 			}
 		} catch(Exception e) {
@@ -239,7 +251,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 			writer = writerFor(itemsDir);
 			writer.setWriteLockTimeout(5000);
 			for (Item item : items) {
-				Document doc = itemToDoc(item);
+				Document doc = asDocument(item);
 				if (doc != null) {
 					if (changeType == ContentListener.ChangeType.BOOTSTRAP) {
 						writer.addDocument(doc);

@@ -7,10 +7,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResultsError;
 import org.atlasapi.search.searcher.ContentSearcher;
+import org.atlasapi.search.searcher.SearchQuery;
 import org.atlasapi.search.view.SearchResultsView;
 
+import com.google.common.base.Strings;
 import com.metabroadcast.common.http.HttpStatusCode;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
@@ -33,9 +36,14 @@ public class SearchServlet extends HttpServlet {
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		String title = request.getParameter("title");
 		if (title == null) {
-			view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing parameter 'title'"));
+			view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required parameter 'title'"));
 			return;
 		}
-		view.render(searcher.search(title, SELECTION_BUILDER.build(request)), request, response);
+		String publishersCsv = request.getParameter("publishers");
+		if (Strings.isNullOrEmpty(publishersCsv)) {
+			view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required (and non-empty) parameter 'publishers'"));
+			return;
+		}
+		view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv))), request, response);
 	}
 }
