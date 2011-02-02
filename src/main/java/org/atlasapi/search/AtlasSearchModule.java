@@ -11,10 +11,12 @@ import org.atlasapi.search.www.WebAwareModule;
 import com.google.common.collect.ImmutableList;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import com.metabroadcast.common.properties.Configurer;
 import com.mongodb.Mongo;
 
 public class AtlasSearchModule extends WebAwareModule {
 
+	
 	@Override
 	public void configure() {
 
@@ -28,7 +30,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	private DatabasedMongo mongo() {
 		try {
-			return new DatabasedMongo(new Mongo(), "atlas");
+			return new DatabasedMongo(new Mongo(), Configurer.get("mongo.dbName").get());
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
