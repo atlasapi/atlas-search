@@ -10,14 +10,9 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -54,29 +49,7 @@ public class HealthController extends HttpServlet {
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		showHealthPage(response);
 	}
-	
-	@RequestMapping("/system/health/{slugs}")
-	public String showHealthPageForSlugs(HttpServletResponse response, @PathVariable(value="slugs") String slugsStr) throws IOException {
-	    ImmutableSet<String> slugs = ImmutableSet.copyOf(slugsStr.split(","));
-        return showHealthPageForSlugs(response, slugs);
-	}
-
-    public String showHealthPageForSlugs(HttpServletResponse response, Iterable<String> slugs) throws IOException {
-        Iterable<HealthProbe> selectedProbes = Iterables.filter(Iterables.transform(slugs, new Function<String, HealthProbe>(){
-            @Override
-            public HealthProbe apply(String slug) {
-                return probes.get(slug);
-            }}), Predicates.notNull());
-	    if(Iterables.isEmpty(selectedProbes)) {
-	        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-	        response.setContentLength(0);
-	    } else {
-	        healthPageFor(selectedProbes, response);
-	    }
-	    return null;
-    }
-	
-	@RequestMapping("/system/health")
+   
 	public String showHealthPage(HttpServletResponse response) throws IOException {
 		healthPageFor(probes.values(), response);
 		return null;
