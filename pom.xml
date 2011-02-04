@@ -21,6 +21,62 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                   <execution> 
+                   <id>unpack-embedded-jetty</id> 
+                   <phase>compile</phase> 
+                   <goals> 
+                     <goal>unpack-dependencies</goal> 
+                   </goals> 
+                   <configuration> 
+                     <includeGroupIds>org.eclipse.jetty</includeGroupIds> 
+                     <outputDirectory>${project.build.directory}/${project.artifactId}</outputDirectory> 
+                   </configuration> 
+                 </execution> 
+                   <execution> 
+                   <id>unpack-servlet-api</id> 
+                   <phase>compile</phase> 
+                   <goals> 
+                     <goal>unpack-dependencies</goal> 
+                   </goals> 
+                   <configuration> 
+                     <includeGroupIds>javax.servlet</includeGroupIds> 
+                     <outputDirectory>${project.build.directory}/${project.artifactId}</outputDirectory> 
+                   </configuration> 
+                 </execution> 
+                </executions>
+            </plugin>
+            <plugin> 
+              <artifactId>maven-antrun-plugin</artifactId> 
+              <executions> 
+                  <execution> 
+                      <phase>compile</phase> 
+                      <configuration> 
+                          <tasks> 
+                           <copy file="${project.build.directory}/classes/org/atlasapi/search/AtlasSearchMain.class" todir="${project.build.directory}/${project.artifactId}/org/atlasapi/search" />
+                          </tasks> 
+                      </configuration> 
+                         <goals> 
+                           <goal>run</goal> 
+                         </goals> 
+                  </execution> 
+              </executions> 
+            </plugin> 
+            <plugin>
+              <artifactId>maven-war-plugin</artifactId>
+              <configuration>
+               <archive>
+                <manifest>
+                 <addClasspath>true</addClasspath>
+                  <classpathPrefix>/WEB-INF/lib</classpathPrefix>
+                 <mainClass>org.atlasapi.search.AtlasSearchMain</mainClass>
+                </manifest>
+               </archive>
+              </configuration>
+             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
                 <dependencies>
                     <dependency>

@@ -1,35 +1,38 @@
 package org.atlasapi.search;
 
 import java.io.File;
+import java.security.ProtectionDomain;
 
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.joda.time.Duration;
 
 public class AtlasSearchMain {
 
-	private static final String LOCAL_STATIC_DIR = "./src/main/webapp";
+	private static final String LOCAL_WAR_DIR = "./src/main/webapp";
 
 	public static void main(String[] args) throws Exception {
 		
 		Server server = createServer();
 		
-		String warUrl = warUrl();
-		WebAppContext ctx = new WebAppContext(warUrl, "/");
+		WebAppContext ctx = new WebAppContext(warBase(), "/");
 		
 		server.setHandler(ctx);
 		server.start();
-		
 		server.join();
 	}
-
-	private static String warUrl() {
-		return new File(LOCAL_STATIC_DIR).getAbsolutePath();
-	}
 	
+	private static String warBase() {
+		if (new File(LOCAL_WAR_DIR).exists()) {
+			return LOCAL_WAR_DIR;
+		}
+		ProtectionDomain domain = AtlasSearchMain.class.getProtectionDomain();
+		System.out.println(domain.getCodeSource().getLocation().toString());
+        return domain.getCodeSource().getLocation().toString();
+	}
+
 	private static Server createServer() {
 		int port = 8181;
 		
@@ -44,11 +47,6 @@ public class AtlasSearchMain {
 		
 		// one acceptor per CPU (ish)
 		connector.setAcceptors(4);
-		
-		Duration maxIdleTime = Duration.standardSeconds(15);
-
-		connector.setMaxIdleTime((int) maxIdleTime.getMillis());
-		connector.setLowResourcesMaxIdleTime((int) maxIdleTime.getMillis());
 		
 		connector.setRequestBufferSize(1024);
 		connector.setResponseHeaderSize(1024);
