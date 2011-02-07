@@ -7,6 +7,7 @@ import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.view.JsonSearchResultsView;
 import org.atlasapi.search.www.HealthController;
 import org.atlasapi.search.www.WebAwareModule;
+import org.springframework.context.annotation.Bean;
 
 import com.google.common.collect.ImmutableList;
 import com.metabroadcast.common.health.HealthProbe;
@@ -16,7 +17,9 @@ import com.mongodb.Mongo;
 
 public class AtlasSearchModule extends WebAwareModule {
 
-	
+	private final String mongoHost = Configurer.get("mongo.host").get();
+	private final String dbName = Configurer.get("mongo.dbName").get();
+
 	@Override
 	public void configure() {
 
@@ -28,9 +31,9 @@ public class AtlasSearchModule extends WebAwareModule {
 		new MongoDbBackedContentBootstrapper(lucene, new MongoDbBackedContentStore(mongo())).start();
 	}
 
-	private DatabasedMongo mongo() {
+	public @Bean DatabasedMongo mongo() {
 		try {
-			return new DatabasedMongo(new Mongo(), Configurer.get("mongo.dbName").get());
+			return new DatabasedMongo(new Mongo(mongoHost), dbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
