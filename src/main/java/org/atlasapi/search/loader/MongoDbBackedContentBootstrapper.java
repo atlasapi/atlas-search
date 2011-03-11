@@ -62,11 +62,11 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
         if (log.isInfoEnabled()) {
             log.info("Bootstrapping top level content");
         }
-        loadAll(null);
+        loadAllContent();
     }
     
 	@SuppressWarnings("unchecked")
-	private void loadAll(Class<? extends Content> filter) {
+	private void loadAllContent() {
 		String fromId = null;
 		while (true) {
 			List<Content> roots = contentStore.listAllRoots(fromId, batchSize);
