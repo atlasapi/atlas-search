@@ -40,8 +40,8 @@ public class MongoDbBackedContentListenerTest  {
         final List<Item> items2 = ImmutableList.<Item>of(item3);
         
         context.checking(new Expectations() {{
-            one(store).listAllRoots(null, 2); will(returnValue(items1));
-            one(store).listAllRoots(item2.getCanonicalUri(), 2); will(returnValue(items2));
+            one(store).listAllRoots(null, -2); will(returnValue(items1));
+            one(store).listAllRoots(item2.getCanonicalUri(), -2); will(returnValue(items2));
         }});
         
         context.checking(new Expectations() {{

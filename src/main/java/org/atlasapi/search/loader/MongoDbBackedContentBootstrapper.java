@@ -78,7 +78,7 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
 			if (!Iterables.isEmpty(containers)) {
 				contentListener.brandChanged(containers, ContentListener.ChangeType.BOOTSTRAP);
 			}
-			if (roots.isEmpty() || roots.size() < batchSize) {
+			if (roots.isEmpty()) {
 				break;
 			}
 			Content last = Iterables.getLast(roots);
