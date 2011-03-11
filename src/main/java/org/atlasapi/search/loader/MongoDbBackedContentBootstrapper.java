@@ -69,7 +69,7 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
 	private void loadAllContent() {
 		String fromId = null;
 		while (true) {
-			List<Content> roots = contentStore.listAllRoots(fromId, batchSize);
+			List<Content> roots = contentStore.listAllRoots(fromId, -batchSize);
 			Iterable<Item> items = Iterables.filter(roots, Item.class);
 			if (!Iterables.isEmpty(items)) {
 				contentListener.itemChanged(items, ContentListener.ChangeType.BOOTSTRAP);
