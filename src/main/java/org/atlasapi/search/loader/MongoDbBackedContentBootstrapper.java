@@ -70,6 +70,10 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
 		String fromId = null;
 		while (true) {
 			List<Content> roots = contentStore.listAllRoots(fromId, -batchSize);
+            if (roots.isEmpty()) {
+                break;
+            }
+			
 			Iterable<Item> items = Iterables.filter(roots, Item.class);
 			if (!Iterables.isEmpty(items)) {
 				contentListener.itemChanged(items, ContentListener.ChangeType.BOOTSTRAP);
@@ -78,9 +82,7 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
 			if (!Iterables.isEmpty(containers)) {
 				contentListener.brandChanged(containers, ContentListener.ChangeType.BOOTSTRAP);
 			}
-			if (roots.isEmpty()) {
-				break;
-			}
+			
 			Content last = Iterables.getLast(roots);
 			fromId = last.getCanonicalUri();
 		}
