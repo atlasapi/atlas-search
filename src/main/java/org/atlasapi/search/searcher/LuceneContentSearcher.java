@@ -128,6 +128,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
         doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
+        // TODO: add availablility as another ordering
         return doc;
 	}
 	
