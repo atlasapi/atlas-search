@@ -1,6 +1,5 @@
 package org.atlasapi.search.loader;
 
-
 import static org.hamcrest.Matchers.hasItems;
 
 import org.atlasapi.media.entity.Item;
@@ -23,7 +22,7 @@ public class MongoDbBackedContentListenerTest  {
     private ContentListener listener = context.mock(ContentListener.class);
     private MongoDbBackedContentStore store = new MongoDbBackedContentStore(MongoTestHelper.anEmptyTestDatabase());
    
-    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(listener, store);
+    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store);
     
     private final Item item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
     private final Item item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
@@ -42,6 +41,6 @@ public class MongoDbBackedContentListenerTest  {
             one(listener).itemChanged(with(hasItems(item3)), with(ContentListener.ChangeType.BOOTSTRAP));
         }});
         
-        bootstrapper.loadAll();
+        bootstrapper.loadAllIntoListener(listener);
     }
 }

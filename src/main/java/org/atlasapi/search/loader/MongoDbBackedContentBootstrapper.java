@@ -24,49 +24,26 @@ import org.atlasapi.media.entity.Item;
 import org.atlasapi.persistence.content.ContentListener;
 import org.atlasapi.persistence.content.RetrospectiveContentLister;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.AbstractService;
 
-public class MongoDbBackedContentBootstrapper extends AbstractService {
+public class MongoDbBackedContentBootstrapper {
 	
     private static final Log log = LogFactory.getLog(MongoDbBackedContentBootstrapper.class);
     private static final int BATCH_SIZE = 100;
 
-    private final ContentListener contentListener;
     private final RetrospectiveContentLister contentStore;
     private int batchSize = BATCH_SIZE;
 
-    public MongoDbBackedContentBootstrapper(ContentListener contentListener, RetrospectiveContentLister contentLister) {
-        this.contentListener = contentListener;
+    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister) {
         this.contentStore = contentLister;
     }
     
-    @Override
-    protected void doStart() {
-    	new Thread() {
-    		public void run() {
-    			loadAll();
-    		};
-    	}.start();
-    	notifyStarted();
-    }
-    
-    @Override
-	protected void doStop() {
-		throw new UnsupportedOperationException();
-	}
-
-    @VisibleForTesting
-    void loadAll() {
-        if (log.isInfoEnabled()) {
+	@SuppressWarnings("unchecked")
+	public void loadAllIntoListener(ContentListener listener) {
+	    if (log.isInfoEnabled()) {
             log.info("Bootstrapping top level content");
         }
-        loadAllContent();
-    }
-    
-	@SuppressWarnings("unchecked")
-	private void loadAllContent() {
+	    
 		String fromId = null;
 		while (true) {
 			List<Content> roots = contentStore.listAllRoots(fromId, -batchSize);
@@ -76,11 +53,11 @@ public class MongoDbBackedContentBootstrapper extends AbstractService {
 			
 			Iterable<Item> items = Iterables.filter(roots, Item.class);
 			if (!Iterables.isEmpty(items)) {
-				contentListener.itemChanged(items, ContentListener.ChangeType.BOOTSTRAP);
+			    listener.itemChanged(items, ContentListener.ChangeType.BOOTSTRAP);
 			}
 			Iterable containers = (Iterable) Iterables.filter(roots, Container.class);
 			if (!Iterables.isEmpty(containers)) {
-				contentListener.brandChanged(containers, ContentListener.ChangeType.BOOTSTRAP);
+			    listener.brandChanged(containers, ContentListener.ChangeType.BOOTSTRAP);
 			}
 			
 			Content last = Iterables.getLast(roots);
