@@ -41,8 +41,10 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
+import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResults;
 
@@ -224,6 +226,9 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         @Override
         public boolean apply(Described input) {
             if (input instanceof Item && (! VALID_PUBLISHERS.contains(input.getPublisher()) || hasContainer((Item) input))) {
+                return false;
+            }
+            if (input instanceof ContentGroup && ! (input instanceof Person)) {
                 return false;
             }
 
