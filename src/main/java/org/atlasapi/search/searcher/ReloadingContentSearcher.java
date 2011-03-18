@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchResults;
+import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
@@ -62,5 +63,9 @@ public class ReloadingContentSearcher extends AbstractService implements Content
             contentBootstrapper.loadAllIntoListener(newSearcher);
             primary.set(newSearcher);
         }
+    }
+    
+    public IndexStats stats() {
+        return primary.get().stats();
     }
 }

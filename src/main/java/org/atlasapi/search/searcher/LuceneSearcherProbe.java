@@ -10,9 +10,9 @@ public class LuceneSearcherProbe implements HealthProbe {
 
 	private static final ByteCount MAX_INDEX_SIZE = ByteCount.gibibytes(1);
 	
-	private final LuceneContentSearcher index;
+	private final ReloadingContentSearcher index;
 
-	public LuceneSearcherProbe(LuceneContentSearcher index) {
+	public LuceneSearcherProbe(ReloadingContentSearcher index) {
 		this.index = index;
 	}
 	

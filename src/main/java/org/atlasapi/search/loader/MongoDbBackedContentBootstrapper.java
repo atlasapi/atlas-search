@@ -45,6 +45,7 @@ public class MongoDbBackedContentBootstrapper {
         }
 	    
 		String fromId = null;
+		int numberProcessed = 0;
 		while (true) {
 			List<Content> roots = contentStore.listAllRoots(fromId, -batchSize);
             if (roots.isEmpty()) {
@@ -55,6 +56,7 @@ public class MongoDbBackedContentBootstrapper {
 			
 			Content last = Iterables.getLast(roots);
 			fromId = last.getCanonicalUri();
+			numberProcessed+= roots.size();
 		}
 		
 		if (enablePeople) {
@@ -69,7 +71,12 @@ public class MongoDbBackedContentBootstrapper {
                 
                 ContentGroup last = Iterables.getLast(roots);
                 fromId = last.getCanonicalUri();
+                numberProcessed+= roots.size();
             }
+		}
+		
+		if (log.isInfoEnabled()) {
+		    log.info("Passed "+numberProcessed+" to content change listener");
 		}
 	}
 
