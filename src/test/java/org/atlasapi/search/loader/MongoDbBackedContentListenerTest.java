@@ -2,6 +2,8 @@ package org.atlasapi.search.loader;
 
 import static org.hamcrest.Matchers.hasItems;
 
+import java.util.List;
+
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.mongo.MongoDbBackedContentStore;
@@ -22,12 +24,13 @@ public class MongoDbBackedContentListenerTest  {
     private ContentChangeListener listener = context.mock(ContentChangeListener.class);
     private MongoDbBackedContentStore store = new MongoDbBackedContentStore(MongoTestHelper.anEmptyTestDatabase());
    
-    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store);
+    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store, true);
     
     private final Item item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
     private final Item item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
     private final Item item3 = new Item("3", "3", Publisher.ARCHIVE_ORG);
     
+    @SuppressWarnings("unchecked")
     @Test
     public void testShouldAllContents() throws Exception {
         
@@ -38,6 +41,7 @@ public class MongoDbBackedContentListenerTest  {
         
         context.checking(new Expectations() {{
             one(listener).contentChange(with(hasItems(item1, item2)));
+            one(listener).contentChange(with(any(List.class)));
         }});
         
         bootstrapper.loadAllIntoListener(listener);

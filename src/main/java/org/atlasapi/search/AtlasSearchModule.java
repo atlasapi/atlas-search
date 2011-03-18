@@ -20,6 +20,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String dbName = Configurer.get("mongo.dbName").get();
+	private final String enablePeople = Configurer.get("people.enabled").get();
 
 	@Override
 	public void configure() {
@@ -33,7 +34,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	}
 	
 	@Bean MongoDbBackedContentBootstrapper bootstrapper() {
-	    return new MongoDbBackedContentBootstrapper(new MongoDbBackedContentStore(mongo()));
+	    return new MongoDbBackedContentBootstrapper(new MongoDbBackedContentStore(mongo()), Boolean.parseBoolean(enablePeople));
 	}
 
 	public @Bean DatabasedMongo mongo() {

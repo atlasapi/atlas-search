@@ -25,6 +25,7 @@ import junit.framework.TestCase;
 import org.atlasapi.media.entity.Brand;
 import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResults;
 
@@ -49,6 +50,7 @@ public class LuceneContentSearcherTest extends TestCase {
 	Brand brasseye = brand("/eye", "Brass Eye");
 	Brand science = brand("/science", "The Story of Science: Power, Proof and Passion");
 	Brand theApprentice = brand("/apprentice", "The Apprentice");
+	Person jamieOliver = person("/jamie", "Jamie Oliver");
 
 	Item englishForCats = item("/items/cats", "English for cats");
 	Item u2 = item("/items/u2", "U2 Ultraviolet");
@@ -59,6 +61,7 @@ public class LuceneContentSearcherTest extends TestCase {
 	List<Brand> brands = Arrays.asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
 	List<Item> items = Arrays.asList(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme);
 	List<Item> itemsUpdated = Arrays.asList(u2);
+	List<Person> people = Arrays.asList(jamieOliver);
 	
 	LuceneContentSearcher searcher;
 	
@@ -69,6 +72,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		searcher.contentChange(brands);
 		searcher.contentChange(items);
 		searcher.contentChange(itemsUpdated);
+		searcher.contentChange(people);
 	}
 	
 	public void testFindingBrandsByTitle() throws Exception {
@@ -99,6 +103,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("brassey")),  brasseye);
 		check(searcher.search(title("The Story of Science Power Proof and Passion")),  science);
 		check(searcher.search(title("The Story of Science: Power, Proof and Passion")),  science);
+		check(searcher.search(title("Jamie")), jamieOliver, jamieOliversCookingProgramme);
 	}
 	
 	protected static SearchQuery title(String term) {
@@ -156,5 +161,11 @@ public class LuceneContentSearcherTest extends TestCase {
 		i.setDescription(description);
 		i.setPublisher(Publisher.BBC);
 		return i;
+	}
+	
+	protected static Person person(String uri, String title) {
+	    Person p = new Person(uri, uri, Publisher.BBC);
+	    p.setTitle(title);
+	    return p;
 	}
 }

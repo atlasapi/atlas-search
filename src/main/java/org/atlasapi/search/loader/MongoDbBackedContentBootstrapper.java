@@ -19,6 +19,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.media.entity.Content;
+import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.persistence.content.RetrospectiveContentLister;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
@@ -31,9 +32,11 @@ public class MongoDbBackedContentBootstrapper {
 
     private final RetrospectiveContentLister contentStore;
     private int batchSize = BATCH_SIZE;
+    private final Boolean enablePeople;
 
-    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister) {
+    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister, Boolean enablePeople) {
         this.contentStore = contentLister;
+        this.enablePeople = enablePeople;
     }
     
 	public void loadAllIntoListener(ContentChangeListener listener) {
@@ -52,6 +55,21 @@ public class MongoDbBackedContentBootstrapper {
 			
 			Content last = Iterables.getLast(roots);
 			fromId = last.getCanonicalUri();
+		}
+		
+		if (enablePeople) {
+    		fromId = null;
+    		while (true) {
+                List<ContentGroup> roots = contentStore.listAllContentGroups(fromId, -batchSize);
+                if (roots.isEmpty()) {
+                    break;
+                }
+                
+                listener.contentChange(roots);
+                
+                ContentGroup last = Iterables.getLast(roots);
+                fromId = last.getCanonicalUri();
+            }
 		}
 	}
 

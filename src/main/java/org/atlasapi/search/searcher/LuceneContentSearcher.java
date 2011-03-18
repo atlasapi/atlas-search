@@ -223,13 +223,17 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 
         @Override
         public boolean apply(Described input) {
-            if (input instanceof Item && ! VALID_PUBLISHERS.contains(input.getPublisher())) {
+            if (input instanceof Item && (! VALID_PUBLISHERS.contains(input.getPublisher()) || hasContainer((Item) input))) {
                 return false;
             }
 
             return true;
         }
     };
+    
+    private final static boolean hasContainer(Item input) {
+        return input.getContainer() != null;
+    }
 
 	public IndexStats stats() {
 		return new IndexStats(ByteCount.bytes(contentDir.sizeInBytes()));
