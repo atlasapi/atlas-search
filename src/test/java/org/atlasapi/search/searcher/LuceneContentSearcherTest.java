@@ -89,7 +89,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("peep show")),  peepShow);
 		check(searcher.search(title("peep s")),  peepShow);
 		check(searcher.search(title("dee")),  theJackDeeShow, dragonsDen);
-		check(searcher.search(title("show")),  peepShow, politicsEast, theJackDeeShow);
+		check(searcher.search(title("show")),  peepShow, gordonRamsaysCookingProgramme, politicsEast, theJackDeeShow);
 		check(searcher.search(title("jack show")),  theJackDeeShow);
 		check(searcher.search(title("the jack dee s")),  theJackDeeShow);
 		check(searcher.search(title("dee show")),  theJackDeeShow);
@@ -101,7 +101,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("The Story of Science: Power, Proof and Passion")),  science);
 	}
 	
-	private SearchQuery title(String term) {
+	protected static SearchQuery title(String term) {
 		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS);
 	}
 
@@ -127,21 +127,11 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(1), ALL_PUBLISHERS)),  politicsEast);
 	}
 
-	
-//	public void testUpdateByType() throws Exception {
-//		Brand dragonsDenV2 = brand("/den", "Dragon's den Version 2");
-//		
-//		check(searcher.search(title("dragon")),  dragonsDen);
-//		
-//		searcher.contentChange(Lists.newArrayList(dragonsDenV2));
-//		check(searcher.search(title("dragon")),  dragonsDenV2);
-//	}
-
-	private void check(SearchResults result, Identified... content) {
+	protected static void check(SearchResults result, Identified... content) {
 		assertThat(result.toUris(), is(toUris(Arrays.asList(content))));
 	}
 
-	private List<String> toUris(List<? extends Identified> content) {
+	private static List<String> toUris(List<? extends Identified> content) {
 		List<String> uris = Lists.newArrayList();
 		for (Identified description : content) {
 			uris.add(description.getCanonicalUri());
@@ -149,17 +139,17 @@ public class LuceneContentSearcherTest extends TestCase {
 		return uris;
 	}
 
-	private Brand brand(String uri, String title) {
+	protected static Brand brand(String uri, String title) {
 		Brand b = new Brand(uri, uri, Publisher.BBC);
 		b.setTitle(title);
 		return b;
 	}
 	
-	private Item item(String uri, String title) {
+	protected static Item item(String uri, String title) {
 		return item(uri, title, null);
 	}
 	
-	private Item item(String uri, String title, String description) {
+	protected static Item item(String uri, String title, String description) {
 		Item i = new Item();
 		i.setTitle(title);
 		i.setCanonicalUri(uri);

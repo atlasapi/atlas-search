@@ -77,7 +77,7 @@ public class TitleQueryBuilder {
 		either.add(fuzzyWithoutSpaces(flattenedQuery), Occur.SHOULD);
 		
 		Query prefix = prefixSearch(flattenedQuery);
-		prefix.setBoost(2);
+		prefix.setBoost(4);
 		either.add(prefix, Occur.SHOULD);
 		
 		Query exactMatch = new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery));

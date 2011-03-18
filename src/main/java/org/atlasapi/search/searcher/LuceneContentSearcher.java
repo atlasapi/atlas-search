@@ -42,10 +42,14 @@ import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Described;
+import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResults;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.stats.Score;
@@ -98,7 +102,6 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 	private static IndexWriter writerFor(Directory dir) throws CorruptIndexException, LockObtainFailedException, IOException {
 		return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
 	}
-
 
 	private Document asDocument(Described content) {
 		if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
@@ -197,11 +200,11 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 		try {
 			writer = writerFor(contentDir);
 			writer.setWriteLockTimeout(5000);
-			for (Described content : contents) {
+			for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
 				Document doc = asDocument(content);
 				if (doc != null) {
 					writer.addDocument(doc);
-				} else {
+				} else if (log.isInfoEnabled()) {
 					log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
 				}
 			}
@@ -213,6 +216,20 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 			}
 		}
 	}
+	
+	// Stop index from growing enormous
+    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO);
+	private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
+
+        @Override
+        public boolean apply(Described input) {
+            if (input instanceof Item && ! VALID_PUBLISHERS.contains(input.getPublisher())) {
+                return false;
+            }
+
+            return true;
+        }
+    };
 
 	public IndexStats stats() {
 		return new IndexStats(ByteCount.bytes(contentDir.sizeInBytes()));

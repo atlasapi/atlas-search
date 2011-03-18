@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchResults;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
 
 public class ReloadingContentSearcher extends AbstractService implements ContentSearcher {
@@ -15,12 +16,17 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     private static final long DELAY = 10;
     private final AtomicReference<LuceneContentSearcher> primary;
     
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService executor;
     private final MongoDbBackedContentBootstrapper contentBootstrapper;
     
     public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper) {
+        this(contentBootstrapper, Executors.newSingleThreadScheduledExecutor());
+    }
+    
+    public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper, ScheduledExecutorService executor) {
         this.contentBootstrapper = contentBootstrapper;
         this.primary = new AtomicReference<LuceneContentSearcher>(new LuceneContentSearcher());
+        this.executor = executor;
     }
     
     @Override
@@ -38,7 +44,8 @@ public class ReloadingContentSearcher extends AbstractService implements Content
         throw new UnsupportedOperationException();
     }
     
-    private void kickOffBootstrap() {
+    @VisibleForTesting
+    protected void kickOffBootstrap() {
         this.contentBootstrapper.loadAllIntoListener(primary.get());
         this.executor.scheduleWithFixedDelay(new LoadAndSwapContentSearcher(), DELAY, DELAY, TimeUnit.MINUTES);
     }
