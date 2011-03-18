@@ -21,7 +21,6 @@ public class LuceneSearcherProbe implements HealthProbe {
 		ProbeResult result = new ProbeResult(title());
 		IndexStats stats = index.stats();
 		result.addInfo("brands index size", stats.getBrandsIndexSize().prettyPrint());
-		result.addInfo("items index size", stats.getItemsIndexSize().prettyPrint());
 		result.add("total index size", stats.getTotalIndexSize().prettyPrint(), stats.getTotalIndexSize().isLessThan(MAX_INDEX_SIZE));
 		return result;
 	}

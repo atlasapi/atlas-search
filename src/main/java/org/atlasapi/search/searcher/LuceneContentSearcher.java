@@ -14,7 +14,6 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.searcher;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -41,25 +40,18 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
-import org.apache.lucene.store.SimpleFSDirectory;
-import org.apache.lucene.store.SingleInstanceLockFactory;
 import org.apache.lucene.util.Version;
-import org.atlasapi.media.entity.Container;
-import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentListener;
 import org.atlasapi.search.model.SearchResults;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
-import com.google.common.io.Files;
-import com.metabroadcast.common.file.MoreFiles;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.stats.Score;
 import com.metabroadcast.common.units.ByteCount;
 
-public class LuceneContentSearcher implements ContentListener, ContentSearcher {
+public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
 	private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
 	
@@ -72,30 +64,19 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 
 	protected static final int MAX_RESULTS = 5000;
 	
-	private final RAMDirectory brandsDir = new RAMDirectory();
-	private final File itemsDirFile = Files.createTempDir();
-	private final SimpleFSDirectory itemsDir = goAheadMakeMyDir(itemsDirFile);
+	private final RAMDirectory contentDir = new RAMDirectory();
 
 	public LuceneContentSearcher() {
 		try {
-			formatDirectory(brandsDir);
-			formatDirectory(itemsDir);
+			formatDirectory(contentDir);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
 	
-	private SimpleFSDirectory goAheadMakeMyDir(File itemsDirFile) {
-	    try {
-            return new SimpleFSDirectory(itemsDirFile, new SingleInstanceLockFactory());
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to setup FS directory for lucene", e);
-        }
-	}
-	
 	private static void closeWriter(IndexWriter writer) {
 		try {
-			//writer.commit();
+			writer.commit();
 			writer.optimize();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -119,7 +100,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 	}
 
 
-	private Document asDocument(Content content) {
+	private Document asDocument(Described content) {
 		if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
 			return null;
 		}
@@ -137,7 +118,7 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 		BooleanQuery titleAndPublisher = new BooleanQuery();
 		titleAndPublisher.add(titleQueryBuilder.build(q.getTerm()), Occur.MUST);
 		titleAndPublisher.add(publisherQuery(q.getIncludedPublishers()), Occur.MUST);
-		return new SearchResults(search(searcherFor(brandsDir), titleAndPublisher, q.getSelection()));
+		return new SearchResults(search(searcherFor(contentDir), titleAndPublisher, q.getSelection()));
 	}
 
 	private Query publisherQuery(Set<Publisher> includedPublishers) {
@@ -147,10 +128,6 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 		}
 		return publisherQuery;
 
-	}
-
-	public List<String> itemTitleSearch(String queryString, Selection selection) {
-		return search(searcherFor(itemsDir), titleQueryBuilder.build(queryString), selection);
 	}
 	
 	private static Searcher searcherFor(Directory dir)  {
@@ -215,59 +192,22 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 	}
 
 	@Override
-	public void brandChanged(Iterable<? extends Container<?>> brands, ChangeType changeType) {
+	public void contentChange(Iterable<? extends Described> contents) {
 		IndexWriter writer = null;
 		try {
-			writer = writerFor(brandsDir);
+			writer = writerFor(contentDir);
 			writer.setWriteLockTimeout(5000);
-			for (Container<?> brand : brands) {
-				Document doc = asDocument(brand);
+			for (Described content : contents) {
+				Document doc = asDocument(content);
 				if (doc != null) {
-					if (changeType == ContentListener.ChangeType.BOOTSTRAP) {
-						writer.addDocument(doc);
-					}
-					else {
-						writer.updateDocument(new Term(FIELD_CONTENT_URI, brand.getCanonicalUri()), doc);	
-					}
-				}
-				else {
-					log.info("Content with title " + brand.getTitle() + " and uri " + brand.getCanonicalUri() + " not added due to null elements");
+					writer.addDocument(doc);
+				} else {
+					log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
 				}
 			}
 		} catch(Exception e) {
 			throw new RuntimeException(e);
-		}		
-		finally {
-			if (writer != null) {
-				closeWriter(writer);
-			}
-		}
-	}
-
-	@Override
-	public void itemChanged(Iterable<? extends Item> items, ChangeType changeType) {
-		IndexWriter writer = null;
-		try {
-			writer = writerFor(itemsDir);
-			writer.setWriteLockTimeout(5000);
-			for (Item item : items) {
-				Document doc = asDocument(item);
-				if (doc != null) {
-					if (changeType == ContentListener.ChangeType.BOOTSTRAP) {
-						writer.addDocument(doc);
-					}
-					else {
-						writer.updateDocument(new Term(FIELD_CONTENT_URI, item.getCanonicalUri()), doc);	
-					}
-				}
-				else {
-					log.info("Item with title " + item.getTitle() + " and uri " + item.getCanonicalUri() + " not added due to null elements");
-				}
-			}
-		} catch(Exception e) {
-			throw new RuntimeException(e);
-		}		
-		finally {
+		} finally {
 			if (writer != null) {
 				closeWriter(writer);
 			}
@@ -275,31 +215,23 @@ public class LuceneContentSearcher implements ContentListener, ContentSearcher {
 	}
 
 	public IndexStats stats() {
-		return new IndexStats(ByteCount.bytes(brandsDir.sizeInBytes()), MoreFiles.size(itemsDirFile));
+		return new IndexStats(ByteCount.bytes(contentDir.sizeInBytes()));
 	}
 	
 	public static class IndexStats {
 
 		private final ByteCount brandsIndexSize;
-		private final ByteCount itemsIndexSize;
 
-		public IndexStats(ByteCount brandsIndexSize, ByteCount itemsIndexSize) {
+		public IndexStats(ByteCount brandsIndexSize) {
 			this.brandsIndexSize = brandsIndexSize;
-			this.itemsIndexSize = itemsIndexSize;
 		}
 		
 		public ByteCount getBrandsIndexSize() {
 			return brandsIndexSize;
 		}
-		
-		public ByteCount getItemsIndexSize() {
-			return itemsIndexSize;
-		}
 
 		public ByteCount getTotalIndexSize() {
-			return brandsIndexSize.plus(itemsIndexSize);
+			return brandsIndexSize;
 		}
 	}
-
-	
 }

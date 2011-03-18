@@ -4,8 +4,8 @@ import static org.hamcrest.Matchers.hasItems;
 
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentListener;
 import org.atlasapi.persistence.content.mongo.MongoDbBackedContentStore;
+import org.atlasapi.search.searcher.ContentChangeListener;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JMock;
@@ -19,7 +19,7 @@ public class MongoDbBackedContentListenerTest  {
    
 	private final Mockery context = new Mockery();
 	
-    private ContentListener listener = context.mock(ContentListener.class);
+    private ContentChangeListener listener = context.mock(ContentChangeListener.class);
     private MongoDbBackedContentStore store = new MongoDbBackedContentStore(MongoTestHelper.anEmptyTestDatabase());
    
     private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store);
@@ -37,8 +37,7 @@ public class MongoDbBackedContentListenerTest  {
         bootstrapper.setBatchSize(2);
         
         context.checking(new Expectations() {{
-            one(listener).itemChanged(with(hasItems(item1, item2)), with(ContentListener.ChangeType.BOOTSTRAP));
-            one(listener).itemChanged(with(hasItems(item3)), with(ContentListener.ChangeType.BOOTSTRAP));
+            one(listener).contentChange(with(hasItems(item1, item2)));
         }});
         
         bootstrapper.loadAllIntoListener(listener);

@@ -18,11 +18,9 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.Item;
-import org.atlasapi.persistence.content.ContentListener;
 import org.atlasapi.persistence.content.RetrospectiveContentLister;
+import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.Iterables;
 
@@ -38,8 +36,7 @@ public class MongoDbBackedContentBootstrapper {
         this.contentStore = contentLister;
     }
     
-	@SuppressWarnings("unchecked")
-	public void loadAllIntoListener(ContentListener listener) {
+	public void loadAllIntoListener(ContentChangeListener listener) {
 	    if (log.isInfoEnabled()) {
             log.info("Bootstrapping top level content");
         }
@@ -51,14 +48,7 @@ public class MongoDbBackedContentBootstrapper {
                 break;
             }
 			
-			Iterable<Item> items = Iterables.filter(roots, Item.class);
-			if (!Iterables.isEmpty(items)) {
-			    listener.itemChanged(items, ContentListener.ChangeType.BOOTSTRAP);
-			}
-			Iterable containers = (Iterable) Iterables.filter(roots, Container.class);
-			if (!Iterables.isEmpty(containers)) {
-			    listener.brandChanged(containers, ContentListener.ChangeType.BOOTSTRAP);
-			}
+			listener.contentChange(roots);
 			
 			Content last = Iterables.getLast(roots);
 			fromId = last.getCanonicalUri();
