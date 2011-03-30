@@ -5,6 +5,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchResults;
 import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
@@ -19,6 +21,7 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     
     private final ScheduledExecutorService executor;
     private final MongoDbBackedContentBootstrapper contentBootstrapper;
+    private final Log log = LogFactory.getLog(ReloadingContentSearcher.class);
     
     public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper) {
         this(contentBootstrapper, Executors.newSingleThreadScheduledExecutor());
@@ -47,7 +50,11 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     
     @VisibleForTesting
     protected void kickOffBootstrap() {
-        this.contentBootstrapper.loadAllIntoListener(primary.get());
+        try {
+            this.contentBootstrapper.loadAllIntoListener(primary.get());
+        } catch (Exception e) {
+            log.error(e);
+        }
         this.executor.scheduleWithFixedDelay(new LoadAndSwapContentSearcher(), DELAY, DELAY, TimeUnit.MINUTES);
     }
 
@@ -59,9 +66,13 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     class LoadAndSwapContentSearcher implements Runnable {
         @Override
         public void run() {
-            LuceneContentSearcher newSearcher = new LuceneContentSearcher();
-            contentBootstrapper.loadAllIntoListener(newSearcher);
-            primary.set(newSearcher);
+            try {
+                LuceneContentSearcher newSearcher = new LuceneContentSearcher();
+                contentBootstrapper.loadAllIntoListener(newSearcher);
+                primary.set(newSearcher);
+            } catch (Exception e) {
+                log.error(e);
+            }
         }
     }
     
