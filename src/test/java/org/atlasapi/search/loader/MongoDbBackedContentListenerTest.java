@@ -24,7 +24,7 @@ public class MongoDbBackedContentListenerTest  {
     private ContentChangeListener listener = context.mock(ContentChangeListener.class);
     private MongoDbBackedContentStore store = new MongoDbBackedContentStore(MongoTestHelper.anEmptyTestDatabase());
    
-    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store, true);
+    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store, null);
     
     private final Item item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
     private final Item item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
