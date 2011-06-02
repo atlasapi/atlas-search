@@ -38,7 +38,9 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	public @Bean DatabasedMongo mongo() {
 		try {
-			return new DatabasedMongo(new Mongo(mongoHost), dbName);
+			Mongo mongo = new Mongo(mongoHost);
+			mongo.slaveOk();
+            return new DatabasedMongo(mongo, dbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
