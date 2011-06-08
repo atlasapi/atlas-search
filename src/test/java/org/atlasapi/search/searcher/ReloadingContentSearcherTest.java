@@ -40,7 +40,7 @@ public class ReloadingContentSearcherTest {
     
     private final DummyContentLister retroLister = new DummyContentLister(content);
     
-    private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister, true);
+    private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister, null);
     @SuppressWarnings("unused")
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();

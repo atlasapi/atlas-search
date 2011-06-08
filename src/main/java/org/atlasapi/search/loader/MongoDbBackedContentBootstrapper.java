@@ -19,10 +19,13 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.ContentGroup;
+import org.atlasapi.media.entity.Person;
+import org.atlasapi.persistence.content.PeopleLister;
+import org.atlasapi.persistence.content.PeopleListerListener;
 import org.atlasapi.persistence.content.RetrospectiveContentLister;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 public class MongoDbBackedContentBootstrapper {
@@ -31,15 +34,16 @@ public class MongoDbBackedContentBootstrapper {
     private static final int BATCH_SIZE = 100;
 
     private final RetrospectiveContentLister contentStore;
-    private int batchSize = BATCH_SIZE;
-    private final Boolean enablePeople;
+    private final PeopleLister peopleLister;
 
-    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister, Boolean enablePeople) {
+    private int batchSize = BATCH_SIZE;
+
+    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister, PeopleLister peopleLister) {
         this.contentStore = contentLister;
-        this.enablePeople = enablePeople;
+		this.peopleLister = peopleLister;
     }
     
-	public void loadAllIntoListener(ContentChangeListener listener) {
+	public void loadAllIntoListener(final ContentChangeListener listener) {
 	    if (log.isInfoEnabled()) {
             log.info("Bootstrapping top level content");
         }
@@ -59,20 +63,13 @@ public class MongoDbBackedContentBootstrapper {
 			numberProcessed+= roots.size();
 		}
 		
-		if (enablePeople) {
-    		fromId = null;
-    		while (true) {
-                List<ContentGroup> roots = contentStore.listAllContentGroups(fromId, -batchSize);
-                if (roots.isEmpty()) {
-                    break;
-                }
-                
-                listener.contentChange(roots);
-                
-                ContentGroup last = Iterables.getLast(roots);
-                fromId = last.getCanonicalUri();
-                numberProcessed+= roots.size();
-            }
+		if (peopleLister != null) {
+    		peopleLister.list(new PeopleListerListener() {
+				@Override
+				public void personListed(Person person) {
+					listener.contentChange(ImmutableList.of(person));
+				}
+			});
 		}
 		
 		if (log.isInfoEnabled()) {
