@@ -7,6 +7,7 @@ import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.persistence.content.RetrospectiveContentLister;
 
 import com.google.common.collect.ImmutableList;
+import com.metabroadcast.common.persistence.mongo.MongoQueryBuilder;
 
 public class DummyContentLister implements RetrospectiveContentLister {
     
@@ -38,5 +39,10 @@ public class DummyContentLister implements RetrospectiveContentLister {
         List<ContentGroup> result = ImmutableList.copyOf(groups);
         groups = ImmutableList.<ContentGroup>of();
         return result;
+    }
+
+    @Override
+    public List<Content> iterateOverContent(MongoQueryBuilder query, String fromId, int batchSize) {
+        return null;
     }
 }

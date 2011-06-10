@@ -17,6 +17,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.google.common.collect.ImmutableList;
+import com.metabroadcast.common.persistence.mongo.MongoQueryBuilder;
 
 @RunWith(JMock.class)
 public class MongoDbBackedContentListenerTest  {
@@ -46,6 +47,11 @@ public class MongoDbBackedContentListenerTest  {
         @Override
         public List<ContentGroup> listAllContentGroups(String fromId, int batchSize) {
             return ImmutableList.of();
+        }
+
+        @Override
+        public List<Content> iterateOverContent(MongoQueryBuilder query, String fromId, int batchSize) {
+            return null;
         }
     };
    
