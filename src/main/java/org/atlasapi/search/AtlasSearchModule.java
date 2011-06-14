@@ -1,6 +1,8 @@
 package org.atlasapi.search;
 
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
+import org.atlasapi.persistence.content.mongo.MongoContentTables;
+import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentSearcher;
@@ -33,7 +35,11 @@ public class AtlasSearchModule extends WebAwareModule {
 	}
 	
 	@Bean MongoDbBackedContentBootstrapper bootstrapper() {
-	    return new MongoDbBackedContentBootstrapper(new MongoContentLister(mongo()), Boolean.parseBoolean(enablePeople));
+	    MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(new MongoContentLister(new MongoContentTables(mongo())));
+	    if(Boolean.valueOf(enablePeople)) {
+	        bootstrapper.withPeopleLister(new MongoPersonStore(mongo()));
+	    }
+	    return bootstrapper;
 	}
 
 	public @Bean DatabasedMongo mongo() {

@@ -1,48 +1,53 @@
 package org.atlasapi.search.searcher;
 
 import java.util.List;
+import java.util.Set;
 
-import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.ContentGroup;
-import org.atlasapi.persistence.content.RetrospectiveContentLister;
+import org.atlasapi.media.entity.Container;
+import org.atlasapi.media.entity.Item;
+import org.atlasapi.persistence.content.ContentLister;
+import org.atlasapi.persistence.content.ContentListingHandler;
+import org.atlasapi.persistence.content.ContentListingProgress;
+import org.atlasapi.persistence.content.ContentTable;
 
 import com.google.common.collect.ImmutableList;
-import com.metabroadcast.common.persistence.mongo.MongoQueryBuilder;
 
-public class DummyContentLister implements RetrospectiveContentLister {
+public class DummyContentLister implements ContentLister {
     
-    private List<Content> content;
-    private List<ContentGroup> groups;
-
-    public DummyContentLister(List<Content> respondWith) {
-        this.content = respondWith;
-        this.groups = ImmutableList.of();
-    }
+    private List<Container<?>> containers;
+    private List<Item> items;
     
-    public void loadLister(List<Content> respondWith) {
-        this.content = respondWith;
+    public DummyContentLister() {
+        this.containers = ImmutableList.of();
+        this.items = ImmutableList.of();
     }
     
-    public void loadGroupLister(List<ContentGroup> respondWith) {
-        this.groups = respondWith;
+    public DummyContentLister loadContainerLister(List<Container<?>> respondWith) {
+        this.containers = respondWith;
+        return this;
     }
-
+    
+    public DummyContentLister loadTopLevelItemLister(List<Item> respondWith) {
+        this.items = respondWith;
+        return this;
+    }
+    
     @Override
-    public List<Content> listAllRoots(String arg0, int arg1) {
-        List<Content> result = ImmutableList.copyOf(content);
-        content = ImmutableList.<Content>of();
-        return result;
+    public void listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
+        
+        for (ContentTable contentTable : tables) {
+            if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
+                for (Container<?> container : containers) {
+                    handler.handle(container, progress);
+                }
+            }
+            if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
+                for (Item item : items) {
+                    handler.handle(item, progress);
+                }
+            }
+        }
+        
     }
-
-    @Override
-    public List<ContentGroup> listAllContentGroups(String arg0, int arg1) {
-        List<ContentGroup> result = ImmutableList.copyOf(groups);
-        groups = ImmutableList.<ContentGroup>of();
-        return result;
-    }
-
-    @Override
-    public List<Content> iterateOverContent(MongoQueryBuilder query, String fromId, int batchSize) {
-        return null;
-    }
+    
 }

@@ -23,14 +23,15 @@ import java.util.List;
 import junit.framework.TestCase;
 
 import org.atlasapi.media.entity.Brand;
+import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResults;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
 
@@ -69,10 +70,9 @@ public class LuceneContentSearcherTest extends TestCase {
 	protected void setUp() throws Exception {
 		super.setUp();
 		searcher = new LuceneContentSearcher();
-		searcher.contentChange(brands);
-		searcher.contentChange(items);
-		searcher.contentChange(itemsUpdated);
-		searcher.contentChange(people);
+		for (Described desc : Iterables.concat(brands, items, itemsUpdated, people)) {
+            searcher.contentChange(desc);
+        }
 	}
 	
 	public void testFindingBrandsByTitle() throws Exception {
@@ -116,7 +116,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		
 		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
 		east.setTitle("east");
-		searcher.contentChange(ImmutableList.of(east));
+		searcher.contentChange(east);
 		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE))), east);
 	}
 	
