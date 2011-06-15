@@ -33,7 +33,7 @@ public class DummyContentLister implements ContentLister {
     }
     
     @Override
-    public void listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
+    public boolean listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
         
         for (ContentTable contentTable : tables) {
             if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
@@ -47,7 +47,7 @@ public class DummyContentLister implements ContentLister {
                 }
             }
         }
-        
+        return true;
     }
     
 }

@@ -33,7 +33,7 @@ public class MongoDbBackedContentListenerTest  {
         List<Item> contents = ImmutableList.of(item1, item2, item3);
 
         @Override
-        public void listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
+        public boolean listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
             for (ContentTable contentTable : tables) {
                 if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
                     for (Item item : contents) {
@@ -41,6 +41,7 @@ public class MongoDbBackedContentListenerTest  {
                     }
                 }
             }
+            return true;
         }
     };
    
