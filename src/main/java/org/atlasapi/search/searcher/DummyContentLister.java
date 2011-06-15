@@ -4,11 +4,13 @@ import java.util.List;
 import java.util.Set;
 
 import org.atlasapi.media.entity.Container;
+import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Item;
-import org.atlasapi.persistence.content.ContentLister;
-import org.atlasapi.persistence.content.ContentListingHandler;
-import org.atlasapi.persistence.content.ContentListingProgress;
 import org.atlasapi.persistence.content.ContentTable;
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
 
 import com.google.common.collect.ImmutableList;
 
@@ -33,21 +35,30 @@ public class DummyContentLister implements ContentLister {
     }
     
     @Override
-    public boolean listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
+    public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
+        
+        int total = containers.size() + items.size();
+        int count = 0;
         
         for (ContentTable contentTable : tables) {
             if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
                 for (Container<?> container : containers) {
-                    handler.handle(container, progress);
+                    progress(container, contentTable, count, total);
+                    handler.handle(container, progress(container, contentTable, ++count, total));
                 }
             }
             if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
                 for (Item item : items) {
-                    handler.handle(item, progress);
+                    progress(item, contentTable, count, total);
+                    handler.handle(item, criteria.getProgress());
                 }
             }
         }
         return true;
+    }
+
+    private ContentListingProgress progress(Content container, ContentTable contentTable, int count, int total) {
+        return ContentListingProgress.progressFor(container, contentTable).withCount(count).withTotal(total);
     }
     
 }

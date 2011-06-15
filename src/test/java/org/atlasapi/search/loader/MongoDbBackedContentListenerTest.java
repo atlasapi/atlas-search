@@ -5,10 +5,10 @@ import java.util.Set;
 
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentLister;
-import org.atlasapi.persistence.content.ContentListingHandler;
-import org.atlasapi.persistence.content.ContentListingProgress;
 import org.atlasapi.persistence.content.ContentTable;
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.search.searcher.ContentChangeListener;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
@@ -33,11 +33,11 @@ public class MongoDbBackedContentListenerTest  {
         List<Item> contents = ImmutableList.of(item1, item2, item3);
 
         @Override
-        public boolean listContent(Set<ContentTable> tables, ContentListingProgress progress, ContentListingHandler handler) {
+        public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
             for (ContentTable contentTable : tables) {
                 if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
                     for (Item item : contents) {
-                        handler.handle(item, progress);
+                        handler.handle(item, criteria.getProgress());
                     }
                 }
             }

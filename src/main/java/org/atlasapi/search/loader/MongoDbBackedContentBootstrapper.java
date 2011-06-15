@@ -23,11 +23,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Person;
-import org.atlasapi.persistence.content.ContentLister;
-import org.atlasapi.persistence.content.ContentListingHandler;
-import org.atlasapi.persistence.content.ContentListingProgress;
 import org.atlasapi.persistence.content.PeopleLister;
 import org.atlasapi.persistence.content.PeopleListerListener;
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +69,7 @@ public class MongoDbBackedContentBootstrapper {
             }
         };
         
-        contentLister.listContent(ImmutableSet.of(TOP_LEVEL_CONTAINERS, TOP_LEVEL_ITEMS), ContentListingProgress.START, handler);
+        contentLister.listContent(ImmutableSet.of(TOP_LEVEL_CONTAINERS, TOP_LEVEL_ITEMS), ContentListingCriteria.defaultCriteria(), handler);
 		
         if(peopleLister != null) {
 		    peopleLister.list(new PeopleListerListener() {
