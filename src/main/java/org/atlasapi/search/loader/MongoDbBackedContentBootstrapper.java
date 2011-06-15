@@ -61,9 +61,10 @@ public class MongoDbBackedContentBootstrapper {
         ContentListingHandler handler = new ContentListingHandler() {
 
             @Override
-            public void handle(Content content, ContentListingProgress progress) {
+            public boolean handle(Content content, ContentListingProgress progress) {
                 listener.contentChange(content);
                 numberProcessed.incrementAndGet();
+                return true;
             }
         };
         
