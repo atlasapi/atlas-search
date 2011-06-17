@@ -65,7 +65,10 @@ public class MongoDbBackedContentBootstrapper {
             public boolean handle(Content content, ContentListingProgress progress) {
                 listener.contentChange(content);
                 numberProcessed.incrementAndGet();
-                return true;
+                if(numberProcessed.incrementAndGet() % 500 == 0) {
+                    log.info(progress.toString());
+                }
+                return true; 
             }
         };
         
