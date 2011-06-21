@@ -16,7 +16,7 @@ import com.google.common.collect.ImmutableList;
 
 public class DummyContentLister implements ContentLister {
     
-    private List<Container<?>> containers;
+    private List<Container> containers;
     private List<Item> items;
     
     public DummyContentLister() {
@@ -24,7 +24,7 @@ public class DummyContentLister implements ContentLister {
         this.items = ImmutableList.of();
     }
     
-    public DummyContentLister loadContainerLister(List<Container<?>> respondWith) {
+    public DummyContentLister loadContainerLister(List<Container> respondWith) {
         this.containers = respondWith;
         return this;
     }
@@ -42,7 +42,7 @@ public class DummyContentLister implements ContentLister {
         
         for (ContentTable contentTable : tables) {
             if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
-                for (Container<?> container : containers) {
+                for (Container container : containers) {
                     progress(container, contentTable, count, total);
                     handler.handle(container, progress(container, contentTable, ++count, total));
                 }
