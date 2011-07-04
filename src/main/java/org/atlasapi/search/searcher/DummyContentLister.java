@@ -1,42 +1,64 @@
 package org.atlasapi.search.searcher;
 
 import java.util.List;
+import java.util.Set;
 
+import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.ContentGroup;
-import org.atlasapi.persistence.content.RetrospectiveContentLister;
+import org.atlasapi.media.entity.Item;
+import org.atlasapi.persistence.content.ContentTable;
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
 
 import com.google.common.collect.ImmutableList;
 
-public class DummyContentLister implements RetrospectiveContentLister {
+public class DummyContentLister implements ContentLister {
     
-    private List<Content> content;
-    private List<ContentGroup> groups;
-
-    public DummyContentLister(List<Content> respondWith) {
-        this.content = respondWith;
-        this.groups = ImmutableList.of();
+    private List<Container<?>> containers;
+    private List<Item> items;
+    
+    public DummyContentLister() {
+        this.containers = ImmutableList.of();
+        this.items = ImmutableList.of();
     }
     
-    public void loadLister(List<Content> respondWith) {
-        this.content = respondWith;
+    public DummyContentLister loadContainerLister(List<Container<?>> respondWith) {
+        this.containers = respondWith;
+        return this;
     }
     
-    public void loadGroupLister(List<ContentGroup> respondWith) {
-        this.groups = respondWith;
+    public DummyContentLister loadTopLevelItemLister(List<Item> respondWith) {
+        this.items = respondWith;
+        return this;
     }
-
+    
     @Override
-    public List<Content> listAllRoots(String arg0, int arg1) {
-        List<Content> result = ImmutableList.copyOf(content);
-        content = ImmutableList.<Content>of();
-        return result;
+    public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
+        
+        int total = containers.size() + items.size();
+        int count = 0;
+        
+        for (ContentTable contentTable : tables) {
+            if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
+                for (Container<?> container : containers) {
+                    progress(container, contentTable, count, total);
+                    handler.handle(container, progress(container, contentTable, ++count, total));
+                }
+            }
+            if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
+                for (Item item : items) {
+                    progress(item, contentTable, count, total);
+                    handler.handle(item, criteria.getProgress());
+                }
+            }
+        }
+        return true;
     }
 
-    @Override
-    public List<ContentGroup> listAllContentGroups(String arg0, int arg1) {
-        List<ContentGroup> result = ImmutableList.copyOf(groups);
-        groups = ImmutableList.<ContentGroup>of();
-        return result;
+    private ContentListingProgress progress(Content container, ContentTable contentTable, int count, int total) {
+        return ContentListingProgress.progressFor(container, contentTable).withCount(count).withTotal(total);
     }
+    
 }

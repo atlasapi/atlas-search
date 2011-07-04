@@ -27,8 +27,9 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
@@ -36,7 +37,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
@@ -51,7 +51,6 @@ import org.atlasapi.search.model.SearchResults;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.stats.Score;
@@ -197,18 +196,18 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 	}
 
 	@Override
-	public void contentChange(Iterable<? extends Described> contents) {
+	public void contentChange(Described content) {
 		IndexWriter writer = null;
 		try {
 			writer = writerFor(contentDir);
 			writer.setWriteLockTimeout(5000);
-			for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
-				Document doc = asDocument(content);
-				if (doc != null) {
-					writer.addDocument(doc);
-				} else if (log.isInfoEnabled()) {
-					log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
-				}
+			if(FILTER_SEARCHABLE_CONTENT.apply(content)) {
+			    Document doc = asDocument(content);
+			    if (doc != null) {
+			        writer.addDocument(doc);
+			    } else if (log.isInfoEnabled()) {
+			        log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
+			    }
 			}
 		} catch(Exception e) {
 			throw new RuntimeException(e);

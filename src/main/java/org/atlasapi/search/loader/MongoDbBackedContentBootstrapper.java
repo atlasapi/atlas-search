@@ -14,7 +14,10 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.loader;
 
-import java.util.List;
+import static org.atlasapi.persistence.content.ContentTable.TOP_LEVEL_CONTAINERS;
+import static org.atlasapi.persistence.content.ContentTable.TOP_LEVEL_ITEMS;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -22,25 +25,32 @@ import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.persistence.content.PeopleLister;
 import org.atlasapi.persistence.content.PeopleListerListener;
-import org.atlasapi.persistence.content.RetrospectiveContentLister;
+
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 
 public class MongoDbBackedContentBootstrapper {
 	
     private static final Log log = LogFactory.getLog(MongoDbBackedContentBootstrapper.class);
-    private static final int BATCH_SIZE = 100;
+    private static final int DEFAULT_BATCH_SIZE = 100;
 
-    private final RetrospectiveContentLister contentStore;
-    private final PeopleLister peopleLister;
+    private final ContentLister contentLister;
+    private PeopleLister peopleLister;
+    
+    private int batchSize = DEFAULT_BATCH_SIZE;
 
-    private int batchSize = BATCH_SIZE;
-
-    public MongoDbBackedContentBootstrapper(RetrospectiveContentLister contentLister, PeopleLister peopleLister) {
-        this.contentStore = contentLister;
-		this.peopleLister = peopleLister;
+    public MongoDbBackedContentBootstrapper(ContentLister contentLister) {
+        this.contentLister = contentLister;
+    }
+    
+    public MongoDbBackedContentBootstrapper withPeopleLister(PeopleLister peopleLister) {
+        this.peopleLister = peopleLister;
+        return this;
     }
     
 	public void loadAllIntoListener(final ContentChangeListener listener) {
@@ -48,28 +58,31 @@ public class MongoDbBackedContentBootstrapper {
             log.info("Bootstrapping top level content");
         }
 	    
-		String fromId = null;
-		int numberProcessed = 0;
-		while (true) {
-			List<Content> roots = contentStore.listAllRoots(fromId, -batchSize);
-            if (roots.isEmpty()) {
-                break;
-            }
-			
-			listener.contentChange(roots);
-			
-			Content last = Iterables.getLast(roots);
-			fromId = last.getCanonicalUri();
-			numberProcessed+= roots.size();
-		}
+		final AtomicInteger numberProcessed = new AtomicInteger(0);
 		
-		if (peopleLister != null) {
-    		peopleLister.list(new PeopleListerListener() {
-				@Override
-				public void personListed(Person person) {
-					listener.contentChange(ImmutableList.of(person));
-				}
-			});
+        ContentListingHandler handler = new ContentListingHandler() {
+
+            @Override
+            public boolean handle(Content content, ContentListingProgress progress) {
+                listener.contentChange(content);
+                numberProcessed.incrementAndGet();
+                if(numberProcessed.incrementAndGet() % 500 == 0) {
+                    log.info(progress.toString());
+                }
+                return true; 
+            }
+        };
+        
+        contentLister.listContent(ImmutableSet.of(TOP_LEVEL_CONTAINERS, TOP_LEVEL_ITEMS), ContentListingCriteria.defaultCriteria(), handler);
+		
+        if(peopleLister != null) {
+		    peopleLister.list(new PeopleListerListener() {
+                @Override
+                public void personListed(Person person) {
+                    listener.contentChange(person);
+                    numberProcessed.incrementAndGet();
+                }
+            });
 		}
 		
 		if (log.isInfoEnabled()) {

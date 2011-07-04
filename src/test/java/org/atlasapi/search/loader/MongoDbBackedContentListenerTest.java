@@ -1,12 +1,14 @@
 package org.atlasapi.search.loader;
 
-import static org.hamcrest.Matchers.hasItems;
-
 import java.util.List;
+import java.util.Set;
 
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.mongo.MongoDbBackedContentStore;
+import org.atlasapi.persistence.content.ContentTable;
+import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.search.searcher.ContentChangeListener;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
@@ -14,34 +16,46 @@ import org.jmock.integration.junit4.JMock;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.metabroadcast.common.persistence.MongoTestHelper;
+import com.google.common.collect.ImmutableList;
 
 @RunWith(JMock.class)
 public class MongoDbBackedContentListenerTest  {
    
 	private final Mockery context = new Mockery();
-	
-    private ContentChangeListener listener = context.mock(ContentChangeListener.class);
-    private MongoDbBackedContentStore store = new MongoDbBackedContentStore(MongoTestHelper.anEmptyTestDatabase());
-   
-    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(store, null);
-    
+
     private final Item item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
     private final Item item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
     private final Item item3 = new Item("3", "3", Publisher.ARCHIVE_ORG);
+	
+    private ContentChangeListener listener = context.mock(ContentChangeListener.class);
+    private final ContentLister lister = new ContentLister() {
+
+        List<Item> contents = ImmutableList.of(item1, item2, item3);
+
+        @Override
+        public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
+            for (ContentTable contentTable : tables) {
+                if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
+                    for (Item item : contents) {
+                        handler.handle(item, criteria.getProgress());
+                    }
+                }
+            }
+            return true;
+        }
+    };
+   
+    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(lister);
     
-    @SuppressWarnings("unchecked")
     @Test
     public void testShouldAllContents() throws Exception {
         
-        store.createOrUpdate(item1);
-        store.createOrUpdate(item2);
-        store.createOrUpdate(item3);
         bootstrapper.setBatchSize(2);
         
         context.checking(new Expectations() {{
-            one(listener).contentChange(with(hasItems(item1, item2)));
-            one(listener).contentChange(with(any(List.class)));
+            one(listener).contentChange(item1);
+            one(listener).contentChange(item2);
+            one(listener).contentChange(item3);
         }});
         
         bootstrapper.loadAllIntoListener(listener);

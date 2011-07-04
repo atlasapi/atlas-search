@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.atlasapi.media.entity.Brand;
-import org.atlasapi.media.entity.Content;
+import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.jmock.Mockery;
@@ -15,8 +15,11 @@ import org.joda.time.DateTime;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import com.google.common.collect.ImmutableList;
+
 @RunWith(JMock.class)
 public class ReloadingContentSearcherTest {
+    
     private final Brand dragonsDen = LuceneContentSearcherTest.brand("/den", "Dragon's den");
     private final Brand theCityGardener = LuceneContentSearcherTest.brand("/garden", "The City Gardener");
     private final Brand eastenders = LuceneContentSearcherTest.brand("/eastenders", "Eastenders");
@@ -36,11 +39,12 @@ public class ReloadingContentSearcherTest {
     private final Item jamieOliversCookingProgramme = LuceneContentSearcherTest.item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
     private final Item gordonRamsaysCookingProgramme = LuceneContentSearcherTest.item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
     
-    private final List<Content> content = Arrays.asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2);
+    private final List<Container<?>> containers = Arrays.<Container<?>>asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+    private final List<Item> items = ImmutableList.of(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2);
     
-    private final DummyContentLister retroLister = new DummyContentLister(content);
+    private final DummyContentLister retroLister = new DummyContentLister().loadContainerLister(containers).loadTopLevelItemLister(items);
     
-    private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister, null);
+    private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister);
     @SuppressWarnings("unused")
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
@@ -51,7 +55,8 @@ public class ReloadingContentSearcherTest {
     public void shouldLoadAndReloadSearch() {
         reloader.kickOffBootstrap();
         testSearcher();
-        retroLister.loadLister(content);
+        retroLister.loadContainerLister(containers);
+        retroLister.loadTopLevelItemLister(items);
         
         scheduler.tick(15, TimeUnit.MINUTES);
         
