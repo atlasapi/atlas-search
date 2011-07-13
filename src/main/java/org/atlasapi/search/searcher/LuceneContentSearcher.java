@@ -41,26 +41,19 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
-import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchResults;
-import org.joda.time.Duration;
-import org.joda.time.Interval;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.stats.Score;
-import com.metabroadcast.common.time.Clock;
-import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
@@ -71,17 +64,12 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 	static final String FIELD_CONTENT_TITLE = "title";
 	static final String FIELD_CONTENT_PUBLISHER = "publisher";
 	private static final String FIELD_CONTENT_URI = "contentUri";
-	private static final String FIELD_AVAILABLE = "available";
-	private static final String FIELD_BROADCAST_NEARBY = "broadcast";
-	
-	private static final String TRUE = "T";
 	
 	private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
 
 	protected static final int MAX_RESULTS = 5000;
 	
 	private final RAMDirectory contentDir = new RAMDirectory();
-	private final Clock clock = new SystemClock();
 
 	public LuceneContentSearcher() {
 		try {
@@ -125,42 +113,15 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
         doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
-        if (content instanceof Item) {
-            Item item = (Item) content;
-            if (item.isAvailable()) {
-                doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
-            }
-            if (hasNearbyBroadcast(item)) {
-                doc.add(new Field(FIELD_BROADCAST_NEARBY, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
-            }
-        }
+        // TODO: add availablility as another ordering
         return doc;
-	}
-	
-	private boolean hasNearbyBroadcast(Item item) {
-	    Interval recent = new Interval(clock.now().minus(Duration.standardDays(7)), clock.now().plus(Duration.standardDays(7)));
-        Set<Broadcast> allBroadcasts = ImmutableSet.copyOf(Iterables.concat(Iterables.transform(item.getVersions(), org.atlasapi.media.entity.Version.TO_BROADCASTS)));
-        for(Broadcast broadcast : allBroadcasts) {
-            if (recent.contains(broadcast.getTransmissionTime())) {
-                return true;
-            }
-        }
-        return false;
 	}
 	
 	@Override
 	public SearchResults search(SearchQuery q) {
 		BooleanQuery titleAndPublisher = new BooleanQuery();
-		Query titleQuery = titleQueryBuilder.build(q.getTerm());
-		Query publisherQuery = publisherQuery(q.getIncludedPublishers());
-		Query broadcastAndAvailabilityQuery = broadcastAndAvailabilityQuery();
-		
-		titleQuery.setBoost(10.0f);
-		broadcastAndAvailabilityQuery.setBoost(3.0f);
-
-		titleAndPublisher.add(titleQuery, Occur.MUST);
-		titleAndPublisher.add(publisherQuery, Occur.MUST);
-		
+		titleAndPublisher.add(titleQueryBuilder.build(q.getTerm()), Occur.MUST);
+		titleAndPublisher.add(publisherQuery(q.getIncludedPublishers()), Occur.MUST);
 		return new SearchResults(search(searcherFor(contentDir), titleAndPublisher, q.getSelection()));
 	}
 
@@ -170,13 +131,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 			publisherQuery.add(new TermQuery(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString())), Occur.SHOULD);
 		}
 		return publisherQuery;
-	}
-	
-	private Query broadcastAndAvailabilityQuery() {
-	    BooleanQuery query = new BooleanQuery();
-	    query.add(new TermQuery(new Term(FIELD_AVAILABLE, TRUE)), Occur.SHOULD);
-	    query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
-	    return query;
+
 	}
 	
 	private static Searcher searcherFor(Directory dir)  {
