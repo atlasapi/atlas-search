@@ -70,65 +70,65 @@ import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
-	private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
-	
-	static final String FIELD_TITLE_FLATTENED = "title-flattened";
-	static final String FIELD_CONTENT_TITLE = "title";
-	static final String FIELD_CONTENT_PUBLISHER = "publisher";
-	private static final String FIELD_CONTENT_URI = "contentUri";
-	private static final String FIELD_AVAILABLE = "available";
-	private static final String FIELD_BROADCAST_NEARBY = "broadcast";
-	
-	private static final String TRUE = "T";
-	
-	private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
+    private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
+    
+    static final String FIELD_TITLE_FLATTENED = "title-flattened";
+    static final String FIELD_CONTENT_TITLE = "title";
+    static final String FIELD_CONTENT_PUBLISHER = "publisher";
+    private static final String FIELD_CONTENT_URI = "contentUri";
+    private static final String FIELD_AVAILABLE = "available";
+    private static final String FIELD_BROADCAST_NEARBY = "broadcast";
+    
+    private static final String TRUE = "T";
+    
+    private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
 
-	protected static final int MAX_RESULTS = 5000;
-	
-	private final RAMDirectory contentDir = new RAMDirectory();
-	private final Clock clock = new SystemClock();
+    protected static final int MAX_RESULTS = 5000;
+    
+    private final RAMDirectory contentDir = new RAMDirectory();
+    private final Clock clock = new SystemClock();
 
     private final KnownTypeContentResolver contentResolver;
 
-	public LuceneContentSearcher(KnownTypeContentResolver contentResolver) {
-		this.contentResolver = contentResolver;
+    public LuceneContentSearcher(KnownTypeContentResolver contentResolver) {
+        this.contentResolver = contentResolver;
         try {
-			formatDirectory(contentDir);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	private static void closeWriter(IndexWriter writer) {
-		try {
-			writer.commit();
-			writer.optimize();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		} finally {
-			try {
-				writer.close();
-			} catch (Exception e) {
-				// not much that can be done here
-				throw new RuntimeException(e);
-			}
-		}
-	}
-	
-	private static void formatDirectory(Directory dir) throws CorruptIndexException, IOException {
-		IndexWriter writer = writerFor(dir);
-		writer.close();
-	}
+            formatDirectory(contentDir);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    private static void closeWriter(IndexWriter writer) {
+        try {
+            writer.commit();
+            writer.optimize();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                writer.close();
+            } catch (Exception e) {
+                // not much that can be done here
+                throw new RuntimeException(e);
+            }
+        }
+    }
+    
+    private static void formatDirectory(Directory dir) throws CorruptIndexException, IOException {
+        IndexWriter writer = writerFor(dir);
+        writer.close();
+    }
 
-	private static IndexWriter writerFor(Directory dir) throws CorruptIndexException, LockObtainFailedException, IOException {
-		return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
-	}
+    private static IndexWriter writerFor(Directory dir) throws CorruptIndexException, LockObtainFailedException, IOException {
+        return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
+    }
 
-	private Document asDocument(Described content) {
-		if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
-			return null;
-		}
-		Document doc = new Document();
+    private Document asDocument(Described content) {
+        if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
+            return null;
+        }
+        Document doc = new Document();
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
@@ -157,28 +157,28 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             }
         }
         return doc;
-	}
-	
-	private boolean haveNearbyBroadcast(Iterable<Item> items) {
-	    for (Item item : items) {
-	        if (hasNearbyBroadcast(item)) {
-	            return true;
-	        }
-	    }
-	    return false;
-	}
-	
-	private boolean haveAvailable(Iterable<Item> items) {
-	    for (Item item : items) {
+    }
+    
+    private boolean haveNearbyBroadcast(Iterable<Item> items) {
+        for (Item item : items) {
+            if (hasNearbyBroadcast(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private boolean haveAvailable(Iterable<Item> items) {
+        for (Item item : items) {
             if (item.isAvailable()) {
                 return true;
             }
         }
         return false;
-	}
-	
-	private boolean hasNearbyBroadcast(Item item) {
-	    Interval recent = new Interval(clock.now().minus(Duration.standardDays(7)), clock.now().plus(Duration.standardDays(7)));
+    }
+    
+    private boolean hasNearbyBroadcast(Item item) {
+        Interval recent = new Interval(clock.now().minus(Duration.standardDays(7)), clock.now().plus(Duration.standardDays(7)));
         Set<Broadcast> allBroadcasts = ImmutableSet.copyOf(Iterables.concat(Iterables.transform(item.getVersions(), org.atlasapi.media.entity.Version.TO_BROADCASTS)));
         for(Broadcast broadcast : allBroadcasts) {
             if (recent.contains(broadcast.getTransmissionTime())) {
@@ -186,129 +186,129 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             }
         }
         return false;
-	}
-	
-	@Override
-	public SearchResults search(SearchQuery q) {
-		BooleanQuery query = new BooleanQuery();
-		Query titleQuery = titleQueryBuilder.build(q.getTerm());
-		Query publisherQuery = publisherQuery(q.getIncludedPublishers());
-		Query broadcastAndAvailabilityQuery = broadcastAndAvailabilityQuery();
-		
-		titleQuery.setBoost(q.getTitleWeighting());
-		broadcastAndAvailabilityQuery.setBoost(q.getCurrentnessWeighting());
+    }
+    
+    @Override
+    public SearchResults search(SearchQuery q) {
+        BooleanQuery query = new BooleanQuery();
+        Query titleQuery = titleQueryBuilder.build(q.getTerm());
+        Query publisherQuery = publisherQuery(q.getIncludedPublishers());
+        Query broadcastAndAvailabilityQuery = broadcastAndAvailabilityQuery();
+        
+        titleQuery.setBoost(q.getTitleWeighting());
+        broadcastAndAvailabilityQuery.setBoost(q.getCurrentnessWeighting());
 
-		query.add(titleQuery, Occur.MUST);
-		query.add(publisherQuery, Occur.MUST);
-		if (q.getCurrentnessWeighting() != 0.0f) {
-		    query.add(broadcastAndAvailabilityQuery, Occur.SHOULD);
-		}
-		
-		return new SearchResults(search(searcherFor(contentDir), query, q.getSelection()));
-	}
+        query.add(titleQuery, Occur.MUST);
+        query.add(publisherQuery, Occur.MUST);
+        if (q.getCurrentnessWeighting() != 0.0f) {
+            query.add(broadcastAndAvailabilityQuery, Occur.SHOULD);
+        }
+        
+        return new SearchResults(search(searcherFor(contentDir), query, q.getSelection()));
+    }
 
-	private Query publisherQuery(Set<Publisher> includedPublishers) {
-		BooleanQuery publisherQuery = new BooleanQuery();
-		for (Publisher publisher : includedPublishers) {
-			publisherQuery.add(new TermQuery(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString())), Occur.SHOULD);
-		}
-		return publisherQuery;
-	}
-	
-	private Query broadcastAndAvailabilityQuery() {
-	    BooleanQuery query = new BooleanQuery();
-	    query.add(new TermQuery(new Term(FIELD_AVAILABLE, TRUE)), Occur.SHOULD);
-	    query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
-	    return query;
-	}
-	
-	private static Searcher searcherFor(Directory dir)  {
-		try {
-			return new IndexSearcher(dir);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
+    private Query publisherQuery(Set<Publisher> includedPublishers) {
+        BooleanQuery publisherQuery = new BooleanQuery();
+        for (Publisher publisher : includedPublishers) {
+            publisherQuery.add(new TermQuery(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString())), Occur.SHOULD);
+        }
+        return publisherQuery;
+    }
+    
+    private Query broadcastAndAvailabilityQuery() {
+        BooleanQuery query = new BooleanQuery();
+        query.add(new TermQuery(new Term(FIELD_AVAILABLE, TRUE)), Occur.SHOULD);
+        query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
+        return query;
+    }
+    
+    private static Searcher searcherFor(Directory dir)  {
+        try {
+            return new IndexSearcher(dir);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	private List<String> search(Searcher searcher, Query query, Selection selection)  {
-		try {
-			int startIndex = selection.getOffset();
-			int endIndex = selection.hasLimit() ? startIndex + selection.getLimit() : Integer.MAX_VALUE;
-			
-			final List<Score<Integer>> hits = Lists.newArrayList();
-			
-			searcher.search(query, new Collector() {
-				
-				private Scorer scorer;
+    private List<String> search(Searcher searcher, Query query, Selection selection)  {
+        try {
+            int startIndex = selection.getOffset();
+            int endIndex = selection.hasLimit() ? startIndex + selection.getLimit() : Integer.MAX_VALUE;
+            
+            final List<Score<Integer>> hits = Lists.newArrayList();
+            
+            searcher.search(query, new Collector() {
+                
+                private Scorer scorer;
 
-				@Override
-				public void setScorer(Scorer scorer) throws IOException {
-					this.scorer = scorer;
-				}
-				
-				@Override
-				public void setNextReader(IndexReader arg0, int docBase) throws IOException {
-				}
-				
-				@Override
-				public void collect(int docId) throws IOException {
-					if (hits.size() < MAX_RESULTS) {
-						hits.add(new Score<Integer>(docId, scorer.score()));
-					}
-				}
-				
-				@Override
-				public boolean acceptsDocsOutOfOrder() {
-					return false;
-				}
-			});
-			
-			Collections.sort(hits, Collections.reverseOrder());
-			
-			List<String> found = Lists.newArrayListWithCapacity(hits.size());
+                @Override
+                public void setScorer(Scorer scorer) throws IOException {
+                    this.scorer = scorer;
+                }
+                
+                @Override
+                public void setNextReader(IndexReader arg0, int docBase) throws IOException {
+                }
+                
+                @Override
+                public void collect(int docId) throws IOException {
+                    if (hits.size() < MAX_RESULTS) {
+                        hits.add(new Score<Integer>(docId, scorer.score()));
+                    }
+                }
+                
+                @Override
+                public boolean acceptsDocsOutOfOrder() {
+                    return false;
+                }
+            });
+            
+            Collections.sort(hits, Collections.reverseOrder());
+            
+            List<String> found = Lists.newArrayListWithCapacity(hits.size());
 
-			for (int i = startIndex; i < Math.min(hits.size(), endIndex); i++) {
-				Document doc = searcher.doc(hits.get(i).getTarget());
-				found.add(doc.getField(FIELD_CONTENT_URI).stringValue());
-			}
-			return found;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		} finally {
-			try {
-				searcher.close();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
+            for (int i = startIndex; i < Math.min(hits.size(), endIndex); i++) {
+                Document doc = searcher.doc(hits.get(i).getTarget());
+                found.add(doc.getField(FIELD_CONTENT_URI).stringValue());
+            }
+            return found;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                searcher.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
-	@Override
-	public void contentChange(Described content) {
-		IndexWriter writer = null;
-		try {
-			writer = writerFor(contentDir);
-			writer.setWriteLockTimeout(5000);
-			if(FILTER_SEARCHABLE_CONTENT.apply(content)) {
-			    Document doc = asDocument(content);
-			    if (doc != null) {
-			        writer.addDocument(doc);
-			    } else if (log.isInfoEnabled()) {
-			        log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
-			    }
-			}
-		} catch(Exception e) {
-			throw new RuntimeException(e);
-		} finally {
-			if (writer != null) {
-				closeWriter(writer);
-			}
-		}
-	}
-	
-	// Stop index from growing enormous
+    @Override
+    public void contentChange(Described content) {
+        IndexWriter writer = null;
+        try {
+            writer = writerFor(contentDir);
+            writer.setWriteLockTimeout(5000);
+            if(FILTER_SEARCHABLE_CONTENT.apply(content)) {
+                Document doc = asDocument(content);
+                if (doc != null) {
+                    writer.addDocument(doc);
+                } else if (log.isInfoEnabled()) {
+                    log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
+                }
+            }
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (writer != null) {
+                closeWriter(writer);
+            }
+        }
+    }
+    
+    // Stop index from growing enormous
     private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS);
-	private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
+    private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
 
         @Override
         public boolean apply(Described input) {
@@ -327,24 +327,24 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         return input.getContainer() != null;
     }
 
-	public IndexStats stats() {
-		return new IndexStats(ByteCount.bytes(contentDir.sizeInBytes()));
-	}
-	
-	public static class IndexStats {
+    public IndexStats stats() {
+        return new IndexStats(ByteCount.bytes(contentDir.sizeInBytes()));
+    }
+    
+    public static class IndexStats {
 
-		private final ByteCount brandsIndexSize;
+        private final ByteCount brandsIndexSize;
 
-		public IndexStats(ByteCount brandsIndexSize) {
-			this.brandsIndexSize = brandsIndexSize;
-		}
-		
-		public ByteCount getBrandsIndexSize() {
-			return brandsIndexSize;
-		}
+        public IndexStats(ByteCount brandsIndexSize) {
+            this.brandsIndexSize = brandsIndexSize;
+        }
+        
+        public ByteCount getBrandsIndexSize() {
+            return brandsIndexSize;
+        }
 
-		public ByteCount getTotalIndexSize() {
-			return brandsIndexSize;
-		}
-	}
+        public ByteCount getTotalIndexSize() {
+            return brandsIndexSize;
+        }
+    }
 }
