@@ -42,11 +42,16 @@ import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Broadcast;
+import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.LookupRef;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.persistence.content.KnownTypeContentResolver;
+import org.atlasapi.search.ContentSearcher;
+import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
@@ -83,8 +88,11 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 	private final RAMDirectory contentDir = new RAMDirectory();
 	private final Clock clock = new SystemClock();
 
-	public LuceneContentSearcher() {
-		try {
+    private final KnownTypeContentResolver contentResolver;
+
+	public LuceneContentSearcher(KnownTypeContentResolver contentResolver) {
+		this.contentResolver = contentResolver;
+        try {
 			formatDirectory(contentDir);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -133,8 +141,40 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             if (hasNearbyBroadcast(item)) {
                 doc.add(new Field(FIELD_BROADCAST_NEARBY, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
+        } else if (content instanceof Container) {
+            Container container = (Container) content;
+            
+            if (container.getChildRefs().isEmpty()) {
+                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
+                
+                Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
+                if (haveAvailable(items)) {
+                    doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+                }
+                if (haveNearbyBroadcast(items)) {
+                    doc.add(new Field(FIELD_BROADCAST_NEARBY, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+                }
+            }
         }
         return doc;
+	}
+	
+	private boolean haveNearbyBroadcast(Iterable<Item> items) {
+	    for (Item item : items) {
+	        if (hasNearbyBroadcast(item)) {
+	            return true;
+	        }
+	    }
+	    return false;
+	}
+	
+	private boolean haveAvailable(Iterable<Item> items) {
+	    for (Item item : items) {
+            if (item.isAvailable()) {
+                return true;
+            }
+        }
+        return false;
 	}
 	
 	private boolean hasNearbyBroadcast(Item item) {
@@ -150,18 +190,21 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 	
 	@Override
 	public SearchResults search(SearchQuery q) {
-		BooleanQuery titleAndPublisher = new BooleanQuery();
+		BooleanQuery query = new BooleanQuery();
 		Query titleQuery = titleQueryBuilder.build(q.getTerm());
 		Query publisherQuery = publisherQuery(q.getIncludedPublishers());
 		Query broadcastAndAvailabilityQuery = broadcastAndAvailabilityQuery();
 		
-		titleQuery.setBoost(10.0f);
-		broadcastAndAvailabilityQuery.setBoost(3.0f);
+		titleQuery.setBoost(q.getTitleWeighting());
+		broadcastAndAvailabilityQuery.setBoost(q.getCurrentnessWeighting());
 
-		titleAndPublisher.add(titleQuery, Occur.MUST);
-		titleAndPublisher.add(publisherQuery, Occur.MUST);
+		query.add(titleQuery, Occur.MUST);
+		query.add(publisherQuery, Occur.MUST);
+		if (q.getCurrentnessWeighting() != 0.0f) {
+		    query.add(broadcastAndAvailabilityQuery, Occur.SHOULD);
+		}
 		
-		return new SearchResults(search(searcherFor(contentDir), titleAndPublisher, q.getSelection()));
+		return new SearchResults(search(searcherFor(contentDir), query, q.getSelection()));
 	}
 
 	private Query publisherQuery(Set<Publisher> includedPublishers) {

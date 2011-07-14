@@ -7,7 +7,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.atlasapi.persistence.content.KnownTypeContentResolver;
+import org.atlasapi.search.ContentSearcher;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
+import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
 
@@ -22,14 +25,16 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     private final ScheduledExecutorService executor;
     private final MongoDbBackedContentBootstrapper contentBootstrapper;
     private final Log log = LogFactory.getLog(ReloadingContentSearcher.class);
+    private final KnownTypeContentResolver contentResolver;
     
-    public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper) {
-        this(contentBootstrapper, Executors.newSingleThreadScheduledExecutor());
+    public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper, KnownTypeContentResolver contentResolver) {
+        this(contentBootstrapper, contentResolver, Executors.newSingleThreadScheduledExecutor());
     }
     
-    public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper, ScheduledExecutorService executor) {
+    public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper, KnownTypeContentResolver contentResolver, ScheduledExecutorService executor) {
         this.contentBootstrapper = contentBootstrapper;
-        this.primary = new AtomicReference<LuceneContentSearcher>(new LuceneContentSearcher());
+        this.contentResolver = contentResolver;
+        this.primary = new AtomicReference<LuceneContentSearcher>(new LuceneContentSearcher(contentResolver));
         this.executor = executor;
     }
     
@@ -67,7 +72,7 @@ public class ReloadingContentSearcher extends AbstractService implements Content
         @Override
         public void run() {
             try {
-                LuceneContentSearcher newSearcher = new LuceneContentSearcher();
+                LuceneContentSearcher newSearcher = new LuceneContentSearcher(contentResolver);
                 contentBootstrapper.loadAllIntoListener(newSearcher);
                 primary.set(newSearcher);
             } catch (Exception e) {

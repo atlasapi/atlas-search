@@ -2,6 +2,7 @@ package org.atlasapi.search;
 
 
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
+import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoContentTables;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
@@ -27,7 +28,8 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {
 	    
-	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(bootstrapper());
+	    MongoContentResolver contentResolver = new MongoContentResolver(new MongoContentTables(mongo()));
+	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(bootstrapper(), contentResolver);
 
 		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), lucene));

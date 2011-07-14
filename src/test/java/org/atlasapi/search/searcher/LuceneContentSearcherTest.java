@@ -14,6 +14,9 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.searcher;
 
+import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
+import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
+import static org.atlasapi.media.entity.testing.VersionTestDataBuilder.version;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -28,6 +31,8 @@ import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
+import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 
 import com.google.common.collect.ImmutableSet;
@@ -56,11 +61,14 @@ public class LuceneContentSearcherTest extends TestCase {
 	Item englishForCats = item("/items/cats", "English for cats");
 	Item u2 = item("/items/u2", "U2 Ultraviolet");
 	
+	Item spooks = complexItem().withTitle("Spooks").withUri("/item/spooks").build();
+	Item spookyTheCat = complexItem().withTitle("Spooky the Cat").withUri("/item/spookythecat").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+	
 	Item jamieOliversCookingProgramme = item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
 	Item gordonRamsaysCookingProgramme = item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
 	
 	List<Brand> brands = Arrays.asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
-	List<Item> items = Arrays.asList(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme);
+	List<Item> items = Arrays.asList(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat);
 	List<Item> itemsUpdated = Arrays.asList(u2);
 	List<Person> people = Arrays.asList(jamieOliver);
 	
@@ -69,8 +77,9 @@ public class LuceneContentSearcherTest extends TestCase {
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		searcher = new LuceneContentSearcher();
-		for (Described desc : Iterables.concat(brands, items, itemsUpdated, people)) {
+		Iterable<Described> allContent = Iterables.concat(brands, items, itemsUpdated, people);
+		searcher = new LuceneContentSearcher(new DummyKnownTypeContentResolver().respondTo(allContent));
+		for (Described desc : allContent) {
             searcher.contentChange(desc);
         }
 	}
@@ -104,20 +113,25 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("The Story of Science Power Proof and Passion")),  science);
 		check(searcher.search(title("The Story of Science: Power, Proof and Passion")),  science);
 		check(searcher.search(title("Jamie")), jamieOliver, jamieOliversCookingProgramme);
+		check(searcher.search(title("Spooks")), spooks, spookyTheCat);
 	}
 	
 	protected static SearchQuery title(String term) {
-		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS);
+		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f);
 	}
+	
+	protected static SearchQuery currentWeighted(String term) {
+        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.4f);
+    }
 
 	public void testLimitingToPublishers() throws Exception {
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE))), eastenders, politicsEast);
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE))));
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE), 1.0f, 0.0f)), eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f)));
 		
 		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
 		east.setTitle("east");
 		searcher.contentChange(east);
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE))), east);
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f)), east);
 	}
 	
 	public void testUsesPrefixSearchForShortSearches() throws Exception {
@@ -127,9 +141,16 @@ public class LuceneContentSearcherTest extends TestCase {
 	}
 	
 	public void testLimitAndOffset() throws Exception {
-		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS)),  eastenders, politicsEast);
-		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(1), ALL_PUBLISHERS)),  eastenders);
-		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(1), ALL_PUBLISHERS)),  politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f)),  eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(1), ALL_PUBLISHERS, 1.0f, 0.0f)),  eastenders);
+		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(1), ALL_PUBLISHERS, 1.0f, 0.0f)),  politicsEast);
+	}
+	
+	public void testBroadcastLocationWeighting() {
+	    check(searcher.search(currentWeighted("spooks")), spooks, spookyTheCat);
+	    
+	    check(searcher.search(title("spook")), spooks, spookyTheCat);
+	    check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
 	}
 
 	protected static void check(SearchResults result, Identified... content) {

@@ -7,6 +7,8 @@ import java.util.concurrent.TimeUnit;
 import org.atlasapi.media.entity.Brand;
 import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
+import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JMock;
@@ -49,7 +51,10 @@ public class ReloadingContentSearcherTest {
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
     
-    private final ReloadingContentSearcher reloader = new ReloadingContentSearcher(bootstrapper, scheduler);
+    private final KnownTypeContentResolver contentResolver = new DummyKnownTypeContentResolver().respondTo(containers).respondTo(items);
+    
+   
+    private final ReloadingContentSearcher reloader = new ReloadingContentSearcher(bootstrapper, contentResolver, scheduler);
     
     @Test
     public void shouldLoadAndReloadSearch() {
