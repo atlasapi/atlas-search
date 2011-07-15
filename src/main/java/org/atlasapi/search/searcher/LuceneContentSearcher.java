@@ -70,6 +70,7 @@ import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
+    private static final int CHILD_LOOKUP_LIMIT = 100;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
@@ -150,7 +151,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             Container container = (Container) content;
             
             if (container.getChildRefs().isEmpty()) {
-                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
+                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(Iterables.limit(container.getChildRefs(), CHILD_LOOKUP_LIMIT), container.getPublisher());
                 
                 Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
                 if (haveAvailable(items)) {
