@@ -76,7 +76,7 @@ public class SearchServlet extends HttpServlet {
                 return Maybe.nothing();
             }
         } else {
-            view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required parameter 'currentnessWeighting'"));
+            view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required parameter '" + parameterName + "'"));
             return Maybe.nothing();
         }
     }
