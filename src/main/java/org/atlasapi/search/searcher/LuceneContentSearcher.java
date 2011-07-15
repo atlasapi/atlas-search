@@ -133,6 +133,11 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
         doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
+        addBroadcastAndAvailabilityFields(content, doc);
+        return doc;
+    }
+
+    private void addBroadcastAndAvailabilityFields(Described content, Document doc) {
         if (content instanceof Item) {
             Item item = (Item) content;
             if (item.isAvailable()) {
@@ -156,7 +161,6 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
                 }
             }
         }
-        return doc;
     }
     
     private boolean haveNearbyBroadcast(Iterable<Item> items) {

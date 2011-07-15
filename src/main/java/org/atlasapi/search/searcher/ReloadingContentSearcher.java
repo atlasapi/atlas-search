@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.AbstractService;
 
 public class ReloadingContentSearcher extends AbstractService implements ContentSearcher {
 
-    private static final long DELAY = 10;
+    private static final long DELAY = 60;
     private final AtomicReference<LuceneContentSearcher> primary;
     
     private final ScheduledExecutorService executor;
@@ -72,9 +72,11 @@ public class ReloadingContentSearcher extends AbstractService implements Content
         @Override
         public void run() {
             try {
+                log.info("Swapping content searchers");
                 LuceneContentSearcher newSearcher = new LuceneContentSearcher(contentResolver);
                 contentBootstrapper.loadAllIntoListener(newSearcher);
                 primary.set(newSearcher);
+                log.info("Finished swapping content searchers");
             } catch (Exception e) {
                 log.error(e);
             }
