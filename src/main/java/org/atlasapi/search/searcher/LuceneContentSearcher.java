@@ -70,7 +70,7 @@ import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
-    private static final int CHILD_LOOKUP_LIMIT = 100;
+    private static final int CHILD_LOOKUP_LIMIT = 10;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
