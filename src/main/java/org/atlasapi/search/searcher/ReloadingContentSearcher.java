@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.AbstractService;
 
 public class ReloadingContentSearcher extends AbstractService implements ContentSearcher {
 
-    private static final long DELAY = 60;
+    private static final long DELAY = 180;
     private final AtomicReference<LuceneContentSearcher> primary;
     
     private final ScheduledExecutorService executor;
