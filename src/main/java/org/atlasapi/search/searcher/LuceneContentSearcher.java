@@ -193,15 +193,20 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         BooleanQuery query = new BooleanQuery();
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
         Query publisherQuery = publisherQuery(q.getIncludedPublishers());
-        Query broadcastAndAvailabilityQuery = broadcastAndAvailabilityQuery();
+        Query broadcastQuery = broadcastQuery();
+        Query availabilityQuery = availabilityQuery();
         
         titleQuery.setBoost(q.getTitleWeighting());
-        broadcastAndAvailabilityQuery.setBoost(q.getCurrentnessWeighting());
+        broadcastQuery.setBoost(q.getBroadcastWeighting());
+        availabilityQuery.setBoost(q.getCatchupWeighting());
 
         query.add(titleQuery, Occur.MUST);
         query.add(publisherQuery, Occur.MUST);
-        if (q.getCurrentnessWeighting() != 0.0f) {
-            query.add(broadcastAndAvailabilityQuery, Occur.SHOULD);
+        if (q.getBroadcastWeighting() != 0.0f) {
+            query.add(broadcastQuery, Occur.SHOULD);
+        }
+        if (q.getCatchupWeighting() != 0.0f) {
+            query.add(availabilityQuery, Occur.SHOULD);
         }
         
         return new SearchResults(search(searcherFor(contentDir), query, q.getSelection()));
@@ -215,10 +220,15 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         return publisherQuery;
     }
     
-    private Query broadcastAndAvailabilityQuery() {
+    private Query broadcastQuery() {
+        BooleanQuery query = new BooleanQuery();
+        query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
+        return query;
+    }
+    
+    private Query availabilityQuery() {
         BooleanQuery query = new BooleanQuery();
         query.add(new TermQuery(new Term(FIELD_AVAILABLE, TRUE)), Occur.SHOULD);
-        query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
         return query;
     }
     
