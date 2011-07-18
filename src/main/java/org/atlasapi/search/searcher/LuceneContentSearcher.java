@@ -87,6 +87,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
     protected static final int MAX_RESULTS = 5000;
     
     private final RAMDirectory contentDir = new RAMDirectory();
+    private final IndexWriter indexWriter;
     private final Clock clock = new SystemClock();
 
     private final KnownTypeContentResolver contentResolver;
@@ -95,6 +96,8 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         this.contentResolver = contentResolver;
         try {
             formatDirectory(contentDir);
+            indexWriter = writerFor(contentDir);
+            indexWriter.setWriteLockTimeout(5000);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -300,14 +303,12 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
 
     @Override
     public void contentChange(Described content) {
-        IndexWriter writer = null;
         try {
-            writer = writerFor(contentDir);
-            writer.setWriteLockTimeout(5000);
+            indexWriter.setWriteLockTimeout(5000);
             if(FILTER_SEARCHABLE_CONTENT.apply(content)) {
                 Document doc = asDocument(content);
                 if (doc != null) {
-                    writer.addDocument(doc);
+                    indexWriter.addDocument(doc);
                 } else if (log.isInfoEnabled()) {
                     log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
                 }
@@ -315,9 +316,9 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         } catch(Exception e) {
             throw new RuntimeException(e);
         } finally {
-            if (writer != null) {
+            /*if (writer != null) {
                 closeWriter(writer);
-            }
+            }*/
         }
     }
     
