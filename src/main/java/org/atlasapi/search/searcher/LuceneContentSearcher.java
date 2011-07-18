@@ -251,7 +251,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             
             TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
             
-            searcher.search(query, collector);
+            searcher.search(query.weight(searcher), null, collector);
             
             TopDocs topDocs = collector.topDocs(startIndex, endIndex);
             
