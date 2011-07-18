@@ -15,7 +15,7 @@ permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -25,18 +25,18 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
@@ -56,6 +56,7 @@ import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -63,13 +64,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
-import com.metabroadcast.common.stats.Score;
 import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
+    private static final int MAX_RESULTS = 1000;
     private static final int CHILD_LOOKUP_LIMIT = 100;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     
@@ -84,8 +85,6 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
     
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
 
-    protected static final int MAX_RESULTS = 5000;
-    
     private final RAMDirectory contentDir = new RAMDirectory();
     private final Clock clock = new SystemClock();
 
@@ -245,48 +244,23 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         }
     }
 
-    private List<String> search(Searcher searcher, Query query, Selection selection)  {
+    private List<String> search(final Searcher searcher, Query query, Selection selection)  {
         try {
             int startIndex = selection.getOffset();
-            int endIndex = selection.hasLimit() ? startIndex + selection.getLimit() : Integer.MAX_VALUE;
+            int endIndex = selection.limitOrDefaultValue(MAX_RESULTS);
             
-            final List<Score<Integer>> hits = Lists.newArrayList();
+            TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
             
-            searcher.search(query, new Collector() {
-                
-                private Scorer scorer;
-
-                @Override
-                public void setScorer(Scorer scorer) throws IOException {
-                    this.scorer = scorer;
-                }
-                
-                @Override
-                public void setNextReader(IndexReader arg0, int docBase) throws IOException {
-                }
-                
-                @Override
-                public void collect(int docId) throws IOException {
-                    if (hits.size() < MAX_RESULTS) {
-                        hits.add(new Score<Integer>(docId, scorer.score()));
-                    }
-                }
-                
-                @Override
-                public boolean acceptsDocsOutOfOrder() {
-                    return false;
-                }
-            });
+            searcher.search(query, collector);
             
-            Collections.sort(hits, Collections.reverseOrder());
+            TopDocs topDocs = collector.topDocs(startIndex, endIndex);
             
-            List<String> found = Lists.newArrayListWithCapacity(hits.size());
-
-            for (int i = startIndex; i < Math.min(hits.size(), endIndex); i++) {
-                Document doc = searcher.doc(hits.get(i).getTarget());
-                found.add(doc.getField(FIELD_CONTENT_URI).stringValue());
+            List<String> results = Lists.newArrayList();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document doc = searcher.doc(scoreDoc.doc);
+                results.add(doc.getField(FIELD_CONTENT_URI).stringValue());
             }
-            return found;
+            return results;
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -297,6 +271,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             }
         }
     }
+    
 
     @Override
     public void contentChange(Iterable<? extends Described> contents) {

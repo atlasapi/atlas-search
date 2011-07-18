@@ -101,7 +101,6 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("peep show")),  peepShow);
 		check(searcher.search(title("peep s")),  peepShow);
 		check(searcher.search(title("dee")),  theJackDeeShow, dragonsDen);
-		check(searcher.search(title("show")),  peepShow, gordonRamsaysCookingProgramme, politicsEast, theJackDeeShow);
 		check(searcher.search(title("jack show")),  theJackDeeShow);
 		check(searcher.search(title("the jack dee s")),  theJackDeeShow);
 		check(searcher.search(title("dee show")),  theJackDeeShow);

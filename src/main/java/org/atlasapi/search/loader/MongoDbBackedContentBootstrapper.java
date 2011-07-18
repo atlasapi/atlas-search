@@ -59,14 +59,11 @@ public class MongoDbBackedContentBootstrapper {
 		final AtomicInteger numberProcessed = new AtomicInteger(0);
 		
         ContentListingHandler handler = new ContentListingHandler() {
-
             @Override
             public boolean handle(Iterable<? extends Content> contents, ContentListingProgress progress) {
                 listener.contentChange(contents);
                 numberProcessed.incrementAndGet();
-                if(numberProcessed.incrementAndGet() % 500 == 0) {
-                    log.info(progress.toString());
-                }
+                log.info(progress.toString());
                 return true; 
             }
         };
