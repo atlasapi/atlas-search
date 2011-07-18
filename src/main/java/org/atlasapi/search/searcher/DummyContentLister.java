@@ -13,6 +13,7 @@ import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.persistence.content.listing.ContentListingProgress;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 public class DummyContentLister implements ContentLister {
     
@@ -42,23 +43,19 @@ public class DummyContentLister implements ContentLister {
         
         for (ContentTable contentTable : tables) {
             if(contentTable.equals(ContentTable.TOP_LEVEL_CONTAINERS)) {
-                for (Container container : containers) {
-                    progress(container, contentTable, count, total);
-                    handler.handle(container, progress(container, contentTable, ++count, total));
-                }
+                    progress(containers, contentTable, count, total);
+                    handler.handle(containers, progress(containers, contentTable, ++count, total));
             }
             if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
-                for (Item item : items) {
-                    progress(item, contentTable, count, total);
-                    handler.handle(item, criteria.getProgress());
-                }
+                progress(items, contentTable, count, total);
+                handler.handle(items, criteria.getProgress());
             }
         }
         return true;
     }
 
-    private ContentListingProgress progress(Content container, ContentTable contentTable, int count, int total) {
-        return ContentListingProgress.progressFor(container, contentTable).withCount(count).withTotal(total);
+    private ContentListingProgress progress(Iterable<? extends Content> contents, ContentTable contentTable, int count, int total) {
+        return ContentListingProgress.progressFor(Iterables.getLast(contents), contentTable).withCount(count).withTotal(total);
     }
     
 }

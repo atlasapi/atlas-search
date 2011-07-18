@@ -70,7 +70,7 @@ import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
 
-    private static final int CHILD_LOOKUP_LIMIT = 10;
+    private static final int CHILD_LOOKUP_LIMIT = 100;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
@@ -87,7 +87,6 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
     protected static final int MAX_RESULTS = 5000;
     
     private final RAMDirectory contentDir = new RAMDirectory();
-    private final IndexWriter indexWriter;
     private final Clock clock = new SystemClock();
 
     private final KnownTypeContentResolver contentResolver;
@@ -96,8 +95,6 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         this.contentResolver = contentResolver;
         try {
             formatDirectory(contentDir);
-            indexWriter = writerFor(contentDir);
-            indexWriter.setWriteLockTimeout(5000);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -302,13 +299,15 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
     }
 
     @Override
-    public void contentChange(Described content) {
+    public void contentChange(Iterable<? extends Described> contents) {
+        IndexWriter writer = null;
         try {
-            indexWriter.setWriteLockTimeout(5000);
-            if(FILTER_SEARCHABLE_CONTENT.apply(content)) {
+            writer = writerFor(contentDir);
+            writer.setWriteLockTimeout(5000);
+            for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
                 Document doc = asDocument(content);
                 if (doc != null) {
-                    indexWriter.addDocument(doc);
+                    writer.addDocument(doc);
                 } else if (log.isInfoEnabled()) {
                     log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
                 }
@@ -316,9 +315,9 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         } catch(Exception e) {
             throw new RuntimeException(e);
         } finally {
-            /*if (writer != null) {
+            if (writer != null) {
                 closeWriter(writer);
-            }*/
+            }
         }
     }
     

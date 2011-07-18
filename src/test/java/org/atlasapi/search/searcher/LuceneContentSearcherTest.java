@@ -35,6 +35,7 @@ import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -79,9 +80,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		super.setUp();
 		Iterable<Described> allContent = Iterables.concat(brands, items, itemsUpdated, people);
 		searcher = new LuceneContentSearcher(new DummyKnownTypeContentResolver().respondTo(allContent));
-		for (Described desc : allContent) {
-            searcher.contentChange(desc);
-        }
+		searcher.contentChange(allContent);
 	}
 	
 	public void testFindingBrandsByTitle() throws Exception {
@@ -130,7 +129,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		
 		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
 		east.setTitle("east");
-		searcher.contentChange(east);
+		searcher.contentChange(ImmutableList.of(east));
 		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), east);
 	}
 	
