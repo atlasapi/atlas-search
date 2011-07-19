@@ -3,6 +3,7 @@ package org.atlasapi.search;
 import java.io.IOException;
 
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,6 +16,7 @@ import org.atlasapi.search.view.SearchResultsView;
 import com.google.common.base.Strings;
 import com.metabroadcast.common.base.Maybe;
 import com.metabroadcast.common.http.HttpStatusCode;
+import com.metabroadcast.common.media.MimeType;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
@@ -26,9 +28,9 @@ public class SearchServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     private final SearchResultsView view;
-    private final ContentSearcher searcher;
+    private final DebuggableContentSearcher searcher;
 
-    public SearchServlet(SearchResultsView view, ContentSearcher searcher) {
+    public SearchServlet(SearchResultsView view, DebuggableContentSearcher searcher) {
         this.view = view;
         this.searcher = searcher;
     }
@@ -62,8 +64,17 @@ public class SearchServlet extends HttpServlet {
             return;
         }
 
-        view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv), titleWeighting.requireValue(), broadcastWeighting.requireValue(),
-                catchupWeighting.requireValue())), request, response);
+        if (request.getParameter("debug") != null) {
+            response.setContentType(MimeType.TEXT_PLAIN.toString());
+            ServletOutputStream outputStream = response.getOutputStream();
+            outputStream.write(searcher.debug(
+                    new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv), titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
+                            .requireValue())).getBytes());
+        } else {
+            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv), titleWeighting.requireValue(), broadcastWeighting.requireValue(),
+                    catchupWeighting.requireValue())), request, response);
+        }
+
     }
 
     private Maybe<Float> getFloatParameter(String parameterName, HttpServletRequest request, HttpServletResponse response) throws IOException {

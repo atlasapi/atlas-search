@@ -61,8 +61,8 @@ public class TitleQueryBuilder {
 
 		for(String token : tokens) {
 			
-			BooleanQuery queryForThisTerm = new BooleanQuery();
-			
+			BooleanQuery queryForThisTerm = new BooleanQuery(true);
+			queryForThisTerm.setMinimumNumberShouldMatch(1);
 			Term term = new Term(LuceneContentSearcher.FIELD_CONTENT_TITLE, token);
 			
 			PrefixQuery prefix = new PrefixQuery(term);
@@ -72,7 +72,8 @@ public class TitleQueryBuilder {
 			queryForTerms.add(queryForThisTerm, Occur.MUST);
 		}
 	
-		BooleanQuery either = new BooleanQuery(); 
+		BooleanQuery either = new BooleanQuery();
+		either.setMinimumNumberShouldMatch(1);
 		either.add(queryForTerms, Occur.SHOULD);
 		either.add(fuzzyWithoutSpaces(flattenedQuery), Occur.SHOULD);
 		
@@ -84,9 +85,7 @@ public class TitleQueryBuilder {
 		exactMatch.setBoost(100);
 		either.add(exactMatch, Occur.SHOULD);
 		
-		BooleanQuery query = new BooleanQuery();
-		query.add(either, Occur.MUST);
-		return query;
+		return either;
 	}
 
 	private FuzzyQuery fuzzyWithoutSpaces(String flattened) {

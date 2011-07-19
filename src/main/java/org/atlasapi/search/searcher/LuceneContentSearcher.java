@@ -15,7 +15,6 @@ permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -30,11 +29,13 @@ import org.apache.lucene.index.IndexWriter.MaxFieldLength;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
+import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Searcher;
-import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermsFilter;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
@@ -50,13 +51,13 @@ import org.atlasapi.media.entity.LookupRef;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
-import org.atlasapi.search.ContentSearcher;
+import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
-import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -68,10 +69,9 @@ import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.units.ByteCount;
 
-public class LuceneContentSearcher implements ContentChangeListener, ContentSearcher {
+public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
 
     private static final int MAX_RESULTS = 1000;
-    private static final int CHILD_LOOKUP_LIMIT = 100;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
@@ -150,7 +150,7 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             Container container = (Container) content;
             
             if (container.getChildRefs().isEmpty()) {
-                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(Iterables.limit(container.getChildRefs(), CHILD_LOOKUP_LIMIT), container.getPublisher());
+                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
                 
                 Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
                 if (haveAvailable(items)) {
@@ -194,45 +194,63 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
     
     @Override
     public SearchResults search(SearchQuery q) {
-        BooleanQuery query = new BooleanQuery();
+        return new SearchResults(search(searcherFor(contentDir), getQuery(q), getFilter(q), q.getSelection()));
+    }
+    
+    @Override
+    public String debug(SearchQuery q) {
+        return Joiner.on("\n").join(debug(searcherFor(contentDir), getQuery(q), getFilter(q), q.getSelection()));
+    }
+
+    private TermsFilter getFilter(SearchQuery q) {
+        TermsFilter filter = new TermsFilter();
+        addPublisherfilter(filter, q.getIncludedPublishers());
+        return filter;
+    }
+
+    private BooleanQuery getQuery(SearchQuery q) {
+        BooleanQuery query = new BooleanQuery(true);
+        
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
-        Query publisherQuery = publisherQuery(q.getIncludedPublishers());
-        Query broadcastQuery = broadcastQuery();
-        Query availabilityQuery = availabilityQuery();
+        Query broadcastQuery = broadcastQuery(q.getBroadcastWeighting());
+        Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
         
         titleQuery.setBoost(q.getTitleWeighting());
-        broadcastQuery.setBoost(q.getBroadcastWeighting());
-        availabilityQuery.setBoost(q.getCatchupWeighting());
 
         query.add(titleQuery, Occur.MUST);
-        query.add(publisherQuery, Occur.MUST);
         if (q.getBroadcastWeighting() != 0.0f) {
             query.add(broadcastQuery, Occur.SHOULD);
         }
         if (q.getCatchupWeighting() != 0.0f) {
             query.add(availabilityQuery, Occur.SHOULD);
         }
-        
-        return new SearchResults(search(searcherFor(contentDir), query, q.getSelection()));
-    }
-
-    private Query publisherQuery(Set<Publisher> includedPublishers) {
-        BooleanQuery publisherQuery = new BooleanQuery();
-        for (Publisher publisher : includedPublishers) {
-            publisherQuery.add(new TermQuery(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString())), Occur.SHOULD);
-        }
-        return publisherQuery;
-    }
-    
-    private Query broadcastQuery() {
-        BooleanQuery query = new BooleanQuery();
-        query.add(new TermQuery(new Term(FIELD_BROADCAST_NEARBY, TRUE)), Occur.SHOULD);
         return query;
     }
     
-    private Query availabilityQuery() {
-        BooleanQuery query = new BooleanQuery();
-        query.add(new TermQuery(new Term(FIELD_AVAILABLE, TRUE)), Occur.SHOULD);
+    private void addPublisherfilter(TermsFilter filter, Set<Publisher> includedPublishers) {
+        for (Publisher publisher : includedPublishers) {
+            filter.addTerm(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString()));
+        }
+    }
+
+    private Query broadcastQuery(float boost) {
+        
+        TermsFilter filter = new TermsFilter();
+        filter.addTerm(new Term(FIELD_BROADCAST_NEARBY, TRUE));
+        
+        ConstantScoreQuery query = new ConstantScoreQuery(filter);
+        query.setBoost(boost);
+        
+        return query;
+    }
+    
+    private Query availabilityQuery(float boost) {
+        
+        TermsFilter filter = new TermsFilter();
+        filter.addTerm(new Term(FIELD_AVAILABLE, TRUE));
+        
+        ConstantScoreQuery query = new ConstantScoreQuery(filter);
+        query.setBoost(boost);
         return query;
     }
     
@@ -244,20 +262,14 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
         }
     }
 
-    private List<String> search(final Searcher searcher, Query query, Selection selection)  {
+    private List<String> search(final Searcher searcher, Query query, Filter filter, Selection selection)  {
         try {
-            int startIndex = selection.getOffset();
-            int endIndex = selection.limitOrDefaultValue(MAX_RESULTS);
-            
-            TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
-            
-            searcher.search(query.weight(searcher), null, collector);
-            
-            TopDocs topDocs = collector.topDocs(startIndex, endIndex);
+            TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
             
             List<String> results = Lists.newArrayList();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                 Document doc = searcher.doc(scoreDoc.doc);
+                System.out.println(doc.getField(FIELD_CONTENT_URI).stringValue() + " : " + scoreDoc.score + "\n" + searcher.explain(query.weight(searcher), scoreDoc.doc));
                 results.add(doc.getField(FIELD_CONTENT_URI).stringValue());
             }
             return results;
@@ -271,6 +283,39 @@ public class LuceneContentSearcher implements ContentChangeListener, ContentSear
             }
         }
     }
+    
+    private List<String> debug(final Searcher searcher, Query query, Filter filter, Selection selection) {
+        try {
+            TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
+            
+            List<String> results = Lists.newArrayList();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document doc = searcher.doc(scoreDoc.doc);
+                results.add(doc.getField(FIELD_CONTENT_URI).stringValue() + " : " + scoreDoc.score + "\n" + searcher.explain(query.weight(searcher), scoreDoc.doc));
+            }
+            return results;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                searcher.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private TopDocs getTopDocs(final Searcher searcher, Query query, Filter filter, Selection selection) throws IOException {
+        int startIndex = selection.getOffset();
+        int endIndex = selection.limitOrDefaultValue(MAX_RESULTS);
+        
+        TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
+        
+        searcher.search(query.weight(searcher), filter, collector);
+        
+        return collector.topDocs(startIndex, endIndex);
+    }
+    
     
 
     @Override

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
-import org.atlasapi.search.ContentSearcher;
+import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
@@ -17,7 +17,7 @@ import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
 
-public class ReloadingContentSearcher extends AbstractService implements ContentSearcher {
+public class ReloadingContentSearcher extends AbstractService implements DebuggableContentSearcher {
 
     private static final long DELAY = 180;
     private final AtomicReference<LuceneContentSearcher> primary;
@@ -85,5 +85,10 @@ public class ReloadingContentSearcher extends AbstractService implements Content
     
     public IndexStats stats() {
         return primary.get().stats();
+    }
+
+    @Override
+    public String debug(SearchQuery query) {
+        return primary.get().debug(query);
     }
 }
