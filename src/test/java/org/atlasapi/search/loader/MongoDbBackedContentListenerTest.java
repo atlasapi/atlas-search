@@ -36,9 +36,7 @@ public class MongoDbBackedContentListenerTest  {
         public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
             for (ContentTable contentTable : tables) {
                 if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
-                    for (Item item : contents) {
-                        handler.handle(item, criteria.getProgress());
-                    }
+                    handler.handle(contents, criteria.getProgress());
                 }
             }
             return true;
@@ -50,12 +48,8 @@ public class MongoDbBackedContentListenerTest  {
     @Test
     public void testShouldAllContents() throws Exception {
         
-        bootstrapper.setBatchSize(2);
-        
         context.checking(new Expectations() {{
-            one(listener).contentChange(item1);
-            one(listener).contentChange(item2);
-            one(listener).contentChange(item3);
+            one(listener).contentChange(ImmutableList.of(item1, item2, item3));
         }});
         
         bootstrapper.loadAllIntoListener(listener);

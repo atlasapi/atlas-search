@@ -5,6 +5,6 @@ import org.atlasapi.media.entity.Described;
 
 public interface ContentChangeListener {
 
-    void contentChange(Described content);
+    void contentChange(Iterable<? extends Described> content);
     
 }

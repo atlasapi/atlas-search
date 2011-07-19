@@ -32,18 +32,16 @@ import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 public class MongoDbBackedContentBootstrapper {
 	
     private static final Log log = LogFactory.getLog(MongoDbBackedContentBootstrapper.class);
-    private static final int DEFAULT_BATCH_SIZE = 100;
 
     private final ContentLister contentLister;
     private PeopleLister peopleLister;
     
-    private int batchSize = DEFAULT_BATCH_SIZE;
-
     public MongoDbBackedContentBootstrapper(ContentLister contentLister) {
         this.contentLister = contentLister;
     }
@@ -61,14 +59,11 @@ public class MongoDbBackedContentBootstrapper {
 		final AtomicInteger numberProcessed = new AtomicInteger(0);
 		
         ContentListingHandler handler = new ContentListingHandler() {
-
             @Override
-            public boolean handle(Content content, ContentListingProgress progress) {
-                listener.contentChange(content);
+            public boolean handle(Iterable<? extends Content> contents, ContentListingProgress progress) {
+                listener.contentChange(contents);
                 numberProcessed.incrementAndGet();
-                if(numberProcessed.incrementAndGet() % 500 == 0) {
-                    log.info(progress.toString());
-                }
+                log.info(progress.toString());
                 return true; 
             }
         };
@@ -79,7 +74,7 @@ public class MongoDbBackedContentBootstrapper {
 		    peopleLister.list(new PeopleListerListener() {
                 @Override
                 public void personListed(Person person) {
-                    listener.contentChange(person);
+                    listener.contentChange(ImmutableList.of(person));
                     numberProcessed.incrementAndGet();
                 }
             });
@@ -89,12 +84,4 @@ public class MongoDbBackedContentBootstrapper {
 		    log.info("Passed "+numberProcessed+" to content change listener");
 		}
 	}
-
-    public int getBatchSize() {
-        return batchSize;
-    }
-
-    public void setBatchSize(int batchSize) {
-        this.batchSize = batchSize;
-    }
 }
