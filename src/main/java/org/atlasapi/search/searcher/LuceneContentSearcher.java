@@ -209,19 +209,19 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
 
     private BooleanQuery getQuery(SearchQuery q) {
-        BooleanQuery query = new BooleanQuery(true);
+        BooleanQuery query = new BooleanQuery();
         
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
-        Query broadcastQuery = broadcastQuery(q.getBroadcastWeighting());
-        Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
         
         titleQuery.setBoost(q.getTitleWeighting());
 
         query.add(titleQuery, Occur.MUST);
         if (q.getBroadcastWeighting() != 0.0f) {
+            Query broadcastQuery = broadcastQuery(q.getBroadcastWeighting());
             query.add(broadcastQuery, Occur.SHOULD);
         }
         if (q.getCatchupWeighting() != 0.0f) {
+            Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
             query.add(availabilityQuery, Occur.SHOULD);
         }
         return query;
