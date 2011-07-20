@@ -48,6 +48,7 @@ public class LuceneContentSearcherTest extends TestCase {
 	Brand dragonsDen = brand("/den", "Dragon's den");
 	Brand theCityGardener = brand("/garden", "The City Gardener");
 	Brand eastenders = brand("/eastenders", "Eastenders");
+	Brand eastendersWeddings = brand("/eastenders-weddings", "Eastenders Weddings");
 	Brand politicsEast = brand("/politics", "The Politics Show East");
 	Brand meetTheMagoons = brand("/magoons", "Meet the Magoons");
 	Brand theJackDeeShow = brand("/dee", "The Jack Dee Show");
@@ -57,6 +58,8 @@ public class LuceneContentSearcherTest extends TestCase {
 	Brand brasseye = brand("/eye", "Brass Eye");
 	Brand science = brand("/science", "The Story of Science: Power, Proof and Passion");
 	Brand theApprentice = brand("/apprentice", "The Apprentice");
+	Item apparent = complexItem().withTitle("Without Apparent Motive").withUri("/item/apparent").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+	
 	Person jamieOliver = person("/jamie", "Jamie Oliver");
 
 	Item englishForCats = item("/items/cats", "English for cats");
@@ -68,8 +71,8 @@ public class LuceneContentSearcherTest extends TestCase {
 	Item jamieOliversCookingProgramme = item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
 	Item gordonRamsaysCookingProgramme = item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
 	
-	List<Brand> brands = Arrays.asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
-	List<Item> items = Arrays.asList(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat);
+	List<Brand> brands = Arrays.asList(eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+	List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat);
 	List<Item> itemsUpdated = Arrays.asList(u2);
 	List<Person> people = Arrays.asList(jamieOliver);
 	
@@ -85,18 +88,19 @@ public class LuceneContentSearcherTest extends TestCase {
 	
 	public void testFindingBrandsByTitle() throws Exception {
 		check(searcher.search(title("Aprentice")), theApprentice);
+		check(searcher.search(currentWeighted("apprent")), theApprentice, apparent);
 		check(searcher.search(title("den")), dragonsDen, theJackDeeShow);
 		check(searcher.search(title("dragon")), dragonsDen);
 		check(searcher.search(title("dragons")), dragonsDen);
 		check(searcher.search(title("drag den")), dragonsDen);
 		check(searcher.search(title("drag")), dragonsDen, euromillionsDraw);
 		check(searcher.search(title("dragon's den")), dragonsDen);
-		check(searcher.search(title("eastenders")),  eastenders);
-		check(searcher.search(title("easteners")),  eastenders);
-		check(searcher.search(title("eastedners")),  eastenders);
+		check(searcher.search(title("eastenders")),  eastenders, eastendersWeddings);
+		check(searcher.search(title("easteners")),  eastenders, eastendersWeddings);
+		check(searcher.search(title("eastedners")),  eastenders, eastendersWeddings);
 		check(searcher.search(title("politics east")),  politicsEast);
-		check(searcher.search(title("eas")),  eastenders, politicsEast);
-		check(searcher.search(title("east")),  eastenders, politicsEast);
+		check(searcher.search(title("eas")),  eastenders, eastendersWeddings, politicsEast);
+		check(searcher.search(title("east")),  eastenders, eastendersWeddings, politicsEast);
 		check(searcher.search(title("end")));
 		check(searcher.search(title("peep show")),  peepShow);
 		check(searcher.search(title("peep s")),  peepShow);

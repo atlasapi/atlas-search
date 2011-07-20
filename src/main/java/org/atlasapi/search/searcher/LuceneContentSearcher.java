@@ -15,6 +15,7 @@ permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -54,9 +55,11 @@ import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
+import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -64,6 +67,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
@@ -130,7 +135,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         Document doc = new Document();
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
-        doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.NO, Field.Index.ANALYZED));
+        doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
         doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
         addBroadcastAndAvailabilityFields(content, doc);
@@ -182,7 +187,8 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
     
     private boolean hasNearbyBroadcast(Item item) {
-        Interval recent = new Interval(clock.now().minus(Duration.standardDays(7)), clock.now().plus(Duration.standardDays(7)));
+        DateTime now = clock.now();
+        Interval recent = new Interval(now.minus(Duration.standardDays(2)), now.plus(Duration.standardDays(4)));
         Set<Broadcast> allBroadcasts = ImmutableSet.copyOf(Iterables.concat(Iterables.transform(item.getVersions(), org.atlasapi.media.entity.Version.TO_BROADCASTS)));
         for(Broadcast broadcast : allBroadcasts) {
             if (recent.contains(broadcast.getTransmissionTime())) {
@@ -261,18 +267,51 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             throw new RuntimeException(e);
         }
     }
+    
+    private static final class Result implements Comparable<Result> {
+        
+        private String uri;
+        private int titleLength;
+        private float score;
 
+        private Result(ScoreDoc scoreDoc, Document doc) {
+            uri = doc.getField(FIELD_CONTENT_URI).stringValue();
+            titleLength = doc.getField(FIELD_TITLE_FLATTENED).stringValue().length();
+            score = scoreDoc.score;
+        }
+
+        @Override
+        public int compareTo(Result other) {
+            int cmp = Floats.compare(other.score, score);
+            if (cmp != 0) {
+                return cmp;
+            }
+            return Ints.compare(titleLength, other.titleLength);
+        }
+    }
+    
+    private static final Function<Result, String> TO_URI = new Function<Result, String>() {
+        @Override
+        public String apply(Result input) {
+            return input.uri;
+        }
+    };
+    
     private List<String> search(final Searcher searcher, Query query, Filter filter, Selection selection)  {
         try {
+            /*
+             * We re-sort the results so that when two items have the same score
+             * the item with the shortest title wins.
+             */
             TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
-            
-            List<String> results = Lists.newArrayList();
+            List<Result> results = Lists.newArrayList();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                 Document doc = searcher.doc(scoreDoc.doc);
-                System.out.println(doc.getField(FIELD_CONTENT_URI).stringValue() + " : " + scoreDoc.score + "\n" + searcher.explain(query.weight(searcher), scoreDoc.doc));
-                results.add(doc.getField(FIELD_CONTENT_URI).stringValue());
+                results.add(new Result(scoreDoc, doc));
             }
-            return results;
+            Collections.sort(results);
+            return Lists.transform(results, TO_URI);
+            
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
