@@ -46,6 +46,7 @@ public class LuceneContentSearcherTest extends TestCase {
 	private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
 	
 	Brand dragonsDen = brand("/den", "Dragon's den");
+	Brand doctorWho = brand("/doctorwho", "Doctor Who");
 	Brand theCityGardener = brand("/garden", "The City Gardener");
 	Brand eastenders = brand("/eastenders", "Eastenders");
 	Brand eastendersWeddings = brand("/eastenders-weddings", "Eastenders Weddings");
@@ -71,7 +72,7 @@ public class LuceneContentSearcherTest extends TestCase {
 	Item jamieOliversCookingProgramme = item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
 	Item gordonRamsaysCookingProgramme = item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
 	
-	List<Brand> brands = Arrays.asList(eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+	List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
 	List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat);
 	List<Item> itemsUpdated = Arrays.asList(u2);
 	List<Person> people = Arrays.asList(jamieOliver);
@@ -118,6 +119,7 @@ public class LuceneContentSearcherTest extends TestCase {
 		check(searcher.search(title("Spooks")), spooks, spookyTheCat);
 	}
 	
+	
 	protected static SearchQuery title(String term) {
 		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
 	}
@@ -137,8 +139,8 @@ public class LuceneContentSearcherTest extends TestCase {
 	}
 	
 	public void testUsesPrefixSearchForShortSearches() throws Exception {
-		check(searcher.search(title("D")),  dragonsDen);
-		check(searcher.search(title("Dr")),  dragonsDen);
+		check(searcher.search(title("D")),  doctorWho, dragonsDen);
+		check(searcher.search(title("Dr")),  doctorWho, dragonsDen);
 		check(searcher.search(title("a")));
 	}
 	

@@ -64,6 +64,7 @@ import org.joda.time.Duration;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -179,6 +180,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
     
     private int hoursToClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
+        broadcasts = Iterables.filter(broadcasts, Predicates.not(Broadcast.IS_REPEAT));
         if (Iterables.isEmpty(broadcasts)) {
             return 0;
         }
@@ -234,7 +236,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
 
     private Query getQuery(SearchQuery q) {
-        BooleanQuery query = new BooleanQuery();
+        BooleanQuery query = new BooleanQuery(true);
         
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
         
@@ -280,11 +282,11 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             this.broadcastWeighting = broadcastWeighting;
             return this;
         }
-
+        
         @Override
         public float customScore(int doc, float subQueryScore, float broadcastHour) {
-            float broadcastScore = (float) (1.0 / (Math.abs(currentHour - broadcastHour) + 1));
-            return subQueryScore  + (broadcastWeighting * broadcastScore);
+            float broadcastScore = (float) (1f / (Math.abs(currentHour - broadcastHour) + 1));
+            return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
         }
     }
     
