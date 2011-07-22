@@ -17,6 +17,7 @@ package org.atlasapi.search.searcher;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -30,12 +31,18 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.util.Version;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 public class TitleQueryBuilder {
 
 	private static final int USE_PREFIX_SEARCH_UP_TO = 2;
+
+	private final Map<String, String> EXPANSIONS = ImmutableMap.<String, String>builder()
+	    .put("dr", "doctor")
+	    .put("rd", "road")
+	.build();
 	
 	Query build(String queryString) {	
 		
@@ -53,7 +60,15 @@ public class TitleQueryBuilder {
 	}
 
 	private Query prefixSearch(String token) {
-		return new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token));
+	    BooleanQuery withExpansions = new BooleanQuery(true);
+	    withExpansions.setMinimumNumberShouldMatch(1);
+		withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token)), Occur.SHOULD);
+
+		String expanded = EXPANSIONS.get(token);
+		if (expanded != null) {
+		    withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, expanded)), Occur.SHOULD);
+		}
+	    return withExpansions;
 	}
 
 	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens) {

@@ -24,6 +24,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.NumericField;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
@@ -39,6 +40,9 @@ import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermsFilter;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.function.CustomScoreQuery;
+import org.apache.lucene.search.function.IntFieldSource;
+import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
@@ -55,23 +59,24 @@ import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
-import org.joda.time.DateTime;
 import org.joda.time.Duration;
-import org.joda.time.Interval;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import com.metabroadcast.common.query.Selection;
-import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
+import com.metabroadcast.common.time.Timestamp;
+import com.metabroadcast.common.time.Timestamper;
 import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
@@ -84,14 +89,14 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     static final String FIELD_CONTENT_PUBLISHER = "publisher";
     private static final String FIELD_CONTENT_URI = "contentUri";
     private static final String FIELD_AVAILABLE = "available";
-    private static final String FIELD_BROADCAST_NEARBY = "broadcast";
+    private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
     
     private static final String TRUE = "T";
     
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
-
+    
     private final RAMDirectory contentDir = new RAMDirectory();
-    private final Clock clock = new SystemClock();
+    private static final Timestamper clock = new SystemClock();
 
     private final KnownTypeContentResolver contentResolver;
 
@@ -143,14 +148,14 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
 
     private void addBroadcastAndAvailabilityFields(Described content, Document doc) {
+        Timestamp now = clock.timestamp();
         if (content instanceof Item) {
             Item item = (Item) content;
             if (item.isAvailable()) {
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
-            if (hasNearbyBroadcast(item)) {
-                doc.add(new Field(FIELD_BROADCAST_NEARBY, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
-            }
+            doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hoursToClosestBroadcast(item.flattenBroadcasts(), now)));
+                
         } else if (content instanceof Container) {
             Container container = (Container) content;
             
@@ -161,37 +166,53 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 if (haveAvailable(items)) {
                     doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
                 }
-                if (haveNearbyBroadcast(items)) {
-                    doc.add(new Field(FIELD_BROADCAST_NEARBY, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+                
+                doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hoursToClosestBroadcastForItems(items, now)));
+            }
+        }
+    }
+    
+    private int hoursToClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
+        if (Iterables.isEmpty(items)) {
+            return 0;
+        }
+        return hoursToClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
+    }
+    
+    private int hoursToClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
+        broadcasts = Iterables.filter(broadcasts, Predicates.not(Broadcast.IS_REPEAT));
+        if (Iterables.isEmpty(broadcasts)) {
+            return 0;
+        }
+        
+        Broadcast closest = sinceBroadcast(now).min(broadcasts);
+        if (closest.getTransmissionTime() == null) {
+            return 0;
+        }
+        return hourOf(Timestamp.of(closest.getTransmissionTime()));
+    }
+
+    private Ordering<Broadcast> sinceBroadcast(final Timestamp now) {
+        return new Ordering<Broadcast>() {
+            @Override
+            public int compare(Broadcast left, Broadcast right) {
+                if (left.getTransmissionTime() == null && left.getTransmissionTime() == null) {
+                    return 0;
                 }
+                if (right.getTransmissionTime() == null) {
+                    return -1;
+                }
+                if (left.getTransmissionTime() == null) {
+                    return 1;
+                }
+                return Longs.compare(now.millisBetween(Timestamp.of(left.getTransmissionTime())), now.millisBetween(Timestamp.of(right.getTransmissionTime())));
             }
-        }
+        };
     }
-    
-    private boolean haveNearbyBroadcast(Iterable<Item> items) {
-        for (Item item : items) {
-            if (hasNearbyBroadcast(item)) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
+
     private boolean haveAvailable(Iterable<Item> items) {
         for (Item item : items) {
             if (item.isAvailable()) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    private boolean hasNearbyBroadcast(Item item) {
-        DateTime now = clock.now();
-        Interval recent = new Interval(now.minus(Duration.standardDays(2)), now.plus(Duration.standardDays(4)));
-        Set<Broadcast> allBroadcasts = ImmutableSet.copyOf(Iterables.concat(Iterables.transform(item.getVersions(), org.atlasapi.media.entity.Version.TO_BROADCASTS)));
-        for(Broadcast broadcast : allBroadcasts) {
-            if (recent.contains(broadcast.getTransmissionTime())) {
                 return true;
             }
         }
@@ -214,40 +235,67 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         return filter;
     }
 
-    private BooleanQuery getQuery(SearchQuery q) {
-        BooleanQuery query = new BooleanQuery();
+
+    private Query getQuery(SearchQuery q) {
+        BooleanQuery query = new BooleanQuery(true);
         
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
         
         titleQuery.setBoost(q.getTitleWeighting());
 
         query.add(titleQuery, Occur.MUST);
-        if (q.getBroadcastWeighting() != 0.0f) {
-            Query broadcastQuery = broadcastQuery(q.getBroadcastWeighting());
-            query.add(broadcastQuery, Occur.SHOULD);
-        }
+
         if (q.getCatchupWeighting() != 0.0f) {
             Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
             query.add(availabilityQuery, Occur.SHOULD);
         }
+        
+        if (q.getBroadcastWeighting() != 0.0f) {
+            return new DistanceToBroadcastScore(query).withBroadcastWeight(q.getBroadcastWeighting());
+        }
         return query;
+    }
+    
+    private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
+    
+    private static int hourOf(long millis) {
+        return (int) (millis / MILLIS_IN_HOUR);
+    }
+    
+    private static int hourOf(Timestamp ts) {
+        return hourOf(ts.millis());
+    }
+    
+    private static class DistanceToBroadcastScore extends CustomScoreQuery {
+        
+        private static final long serialVersionUID = 1L;
+        
+        private final int currentHour;
+
+        private float broadcastWeighting = 1;
+
+        public DistanceToBroadcastScore(Query subQuery) {
+            super(subQuery, new ValueSourceQuery(new IntFieldSource(FIELD_BROADCAST_HOUR_TS)));
+            setStrict(true);
+            this.currentHour = hourOf(clock.timestamp());
+        }
+        
+        public Query withBroadcastWeight(float broadcastWeighting) {
+            this.broadcastWeighting = broadcastWeighting;
+            return this;
+        }
+        
+        @Override
+        public float customScore(int doc, float subQueryScore, float broadcastHour) {
+            float broadcastScore = (float) (1f / (Math.abs(currentHour - broadcastHour) + 1));
+            return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
+        }
     }
     
     private void addPublisherfilter(TermsFilter filter, Set<Publisher> includedPublishers) {
         for (Publisher publisher : includedPublishers) {
             filter.addTerm(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString()));
         }
-    }
-
-    private Query broadcastQuery(float boost) {
-        
-        TermsFilter filter = new TermsFilter();
-        filter.addTerm(new Term(FIELD_BROADCAST_NEARBY, TRUE));
-        
-        ConstantScoreQuery query = new ConstantScoreQuery(filter);
-        query.setBoost(boost);
-        
-        return query;
     }
     
     private Query availabilityQuery(float boost) {
@@ -354,7 +402,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         
         return collector.topDocs(startIndex, endIndex);
     }
-    
     
 
     @Override
