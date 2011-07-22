@@ -127,7 +127,7 @@ public class LuceneContentSearcherTest extends TestCase {
     }
 
 	public void testLimitingToPublishers() throws Exception {
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), eastenders, politicsEast);
+		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), eastenders, eastendersWeddings, politicsEast);
 		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)));
 		
 		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
@@ -143,9 +143,9 @@ public class LuceneContentSearcherTest extends TestCase {
 	}
 	
 	public void testLimitAndOffset() throws Exception {
-		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders, politicsEast);
-		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(1), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders);
-		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(1), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders, eastendersWeddings, politicsEast);
+		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders, eastendersWeddings);
+		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  politicsEast);
 	}
 	
 	public void testBroadcastLocationWeighting() {
