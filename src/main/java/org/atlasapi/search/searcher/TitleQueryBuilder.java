@@ -31,13 +31,17 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.util.Version;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 public class TitleQueryBuilder {
 
-	private static final int USE_PREFIX_SEARCH_UP_TO = 2;
+	private static final Joiner JOINER = Joiner.on("");
+
+    private static final int USE_PREFIX_SEARCH_UP_TO = 2;
 
 	private final Map<String, String> EXPANSIONS = ImmutableMap.<String, String>builder()
 	    .put("dr", "doctor")
@@ -96,12 +100,35 @@ public class TitleQueryBuilder {
 		prefix.setBoost(50);
 		either.add(prefix, Occur.SHOULD);
 		
-		Query exactMatch = new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery));
-		exactMatch.setBoost(100);
-		either.add(exactMatch, Occur.SHOULD);
+		either.add(exactMatch(flattenedQuery, tokens), Occur.SHOULD);
 		
 		return either;
 	}
+
+    private Query exactMatch(String flattenedQuery, Iterable<String> tokens) {
+        BooleanQuery exactMatch = new BooleanQuery(true);
+		exactMatch.setMinimumNumberShouldMatch(1);
+		exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery)), Occur.SHOULD);
+		
+		Iterable<String> transformed = Iterables.transform(tokens, new Function<String, String>() {
+            @Override
+            public String apply(String token) {
+                String expanded = EXPANSIONS.get(token);
+                if (expanded != null) {
+                    return expanded;
+                }
+                return token;
+            }
+		});
+		
+		String flattenedAndExpanded = JOINER.join(transformed);
+		
+        if (!flattenedAndExpanded.equals(flattenedQuery)) {
+            exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedAndExpanded)), Occur.SHOULD);
+        }
+		exactMatch.setBoost(100);
+        return exactMatch;
+    }
 
 	private FuzzyQuery fuzzyWithoutSpaces(String flattened) {
 		return new FuzzyQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattened), 0.8f, USE_PREFIX_SEARCH_UP_TO);
