@@ -85,7 +85,7 @@ public class TitleQueryBuilder {
     }
 
 	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens) {
-		BooleanQuery queryForTerms = new BooleanQuery(true);
+		BooleanQuery queryForTerms = new BooleanQuery();
 
 		for(String token : tokens) {
 			BooleanQuery queryForThisTerm = new BooleanQuery();
