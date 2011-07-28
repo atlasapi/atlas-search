@@ -24,7 +24,10 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.MultiTermQuery;
+import org.apache.lucene.search.PrefixFilter;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -66,14 +69,20 @@ public class TitleQueryBuilder {
 	private Query prefixSearch(String token) {
 	    BooleanQuery withExpansions = new BooleanQuery(true);
 	    withExpansions.setMinimumNumberShouldMatch(1);
-		withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token)), Occur.SHOULD);
+		withExpansions.add(prefixQuery(token), Occur.SHOULD);
 
 		String expanded = EXPANSIONS.get(token);
 		if (expanded != null) {
-		    withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, expanded)), Occur.SHOULD);
+		    withExpansions.add(prefixQuery(expanded), Occur.SHOULD);
 		}
 	    return withExpansions;
 	}
+
+    private PrefixQuery prefixQuery(String token) {
+        PrefixQuery query = new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token));
+        query.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_FILTER_REWRITE);
+        return query;
+    }
 
 	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens) {
 		BooleanQuery queryForTerms = new BooleanQuery(true);
