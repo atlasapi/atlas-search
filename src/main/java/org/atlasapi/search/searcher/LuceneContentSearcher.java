@@ -51,6 +51,7 @@ import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.media.entity.Described;
+import org.atlasapi.media.entity.Film;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.LookupRef;
 import org.atlasapi.media.entity.Person;
@@ -162,12 +163,18 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
             int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
+            
+            if (hourOfClosestBroadcast == 0 && content instanceof Film) {
+                // Films should pretend to be 30 days old (to keep cinema films in the search)
+                hourOfClosestBroadcast = hourOf(now.minus(Duration.standardDays(30)));
+            }
+            
             if (hourOfClosestBroadcast < minHourTimestamp) {
                 return false;
             }
             doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
             return true;
-                
+            
         } else if (content instanceof Container) {
             Container container = (Container) content;
             if (!container.getChildRefs().isEmpty()) {
