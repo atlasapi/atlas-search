@@ -24,20 +24,27 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.MultiTermQuery;
+import org.apache.lucene.search.PrefixFilter;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.util.Version;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 public class TitleQueryBuilder {
 
-	private static final int USE_PREFIX_SEARCH_UP_TO = 2;
+	private static final Joiner JOINER = Joiner.on("");
+
+    private static final int USE_PREFIX_SEARCH_UP_TO = 2;
 
 	private final Map<String, String> EXPANSIONS = ImmutableMap.<String, String>builder()
 	    .put("dr", "doctor")
@@ -62,17 +69,23 @@ public class TitleQueryBuilder {
 	private Query prefixSearch(String token) {
 	    BooleanQuery withExpansions = new BooleanQuery(true);
 	    withExpansions.setMinimumNumberShouldMatch(1);
-		withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token)), Occur.SHOULD);
+		withExpansions.add(prefixQuery(token), Occur.SHOULD);
 
 		String expanded = EXPANSIONS.get(token);
 		if (expanded != null) {
-		    withExpansions.add(new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, expanded)), Occur.SHOULD);
+		    withExpansions.add(prefixQuery(expanded), Occur.SHOULD);
 		}
 	    return withExpansions;
 	}
 
+    private PrefixQuery prefixQuery(String token) {
+        PrefixQuery query = new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token));
+        query.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_FILTER_REWRITE);
+        return query;
+    }
+
 	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens) {
-		BooleanQuery queryForTerms = new BooleanQuery(true);
+		BooleanQuery queryForTerms = new BooleanQuery();
 
 		for(String token : tokens) {
 			BooleanQuery queryForThisTerm = new BooleanQuery();
@@ -96,12 +109,35 @@ public class TitleQueryBuilder {
 		prefix.setBoost(50);
 		either.add(prefix, Occur.SHOULD);
 		
-		Query exactMatch = new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery));
-		exactMatch.setBoost(100);
-		either.add(exactMatch, Occur.SHOULD);
+		either.add(exactMatch(flattenedQuery, tokens), Occur.SHOULD);
 		
 		return either;
 	}
+
+    private Query exactMatch(String flattenedQuery, Iterable<String> tokens) {
+        BooleanQuery exactMatch = new BooleanQuery(true);
+		exactMatch.setMinimumNumberShouldMatch(1);
+		exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery)), Occur.SHOULD);
+		
+		Iterable<String> transformed = Iterables.transform(tokens, new Function<String, String>() {
+            @Override
+            public String apply(String token) {
+                String expanded = EXPANSIONS.get(token);
+                if (expanded != null) {
+                    return expanded;
+                }
+                return token;
+            }
+		});
+		
+		String flattenedAndExpanded = JOINER.join(transformed);
+		
+        if (!flattenedAndExpanded.equals(flattenedQuery)) {
+            exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedAndExpanded)), Occur.SHOULD);
+        }
+		exactMatch.setBoost(100);
+        return exactMatch;
+    }
 
 	private FuzzyQuery fuzzyWithoutSpaces(String flattened) {
 		return new FuzzyQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattened), 0.8f, USE_PREFIX_SEARCH_UP_TO);

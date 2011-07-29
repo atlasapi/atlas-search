@@ -100,6 +100,8 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
 
     private final KnownTypeContentResolver contentResolver;
 
+    private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
+    
     public LuceneContentSearcher(KnownTypeContentResolver contentResolver) {
         this.contentResolver = contentResolver;
         try {
@@ -143,23 +145,32 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
         doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO,  Field.Index.NOT_ANALYZED));
-        addBroadcastAndAvailabilityFields(content, doc);
+        if (!addBroadcastAndAvailabilityFields(content, doc)) {
+            return null;
+        }
         return doc;
     }
 
-    private void addBroadcastAndAvailabilityFields(Described content, Document doc) {
+    private boolean addBroadcastAndAvailabilityFields(Described content, Document doc) {
         Timestamp now = clock.timestamp();
+        
+        int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
+        
         if (content instanceof Item) {
             Item item = (Item) content;
             if (item.isAvailable()) {
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
-            doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hoursToClosestBroadcast(item.flattenBroadcasts(), now)));
+            int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
+            if (hourOfClosestBroadcast < minHourTimestamp) {
+                return false;
+            }
+            doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
+            return true;
                 
         } else if (content instanceof Container) {
             Container container = (Container) content;
-            
-            if (container.getChildRefs().isEmpty()) {
+            if (!container.getChildRefs().isEmpty()) {
                 List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
                 
                 Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
@@ -167,19 +178,25 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                     doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
                 }
                 
-                doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hoursToClosestBroadcastForItems(items, now)));
+                int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(items, now);
+                if (hourOfClosestBroadcastForItems < minHourTimestamp) {
+                    return false;
+                }
+                doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
+                return true;
             }
         }
+        return false;
     }
     
-    private int hoursToClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
+    private int hourOfClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
         if (Iterables.isEmpty(items)) {
             return 0;
         }
-        return hoursToClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
+        return hourOfClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
     }
     
-    private int hoursToClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
+    private int hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
         broadcasts = Iterables.filter(broadcasts, Predicates.not(Broadcast.IS_REPEAT));
         if (Iterables.isEmpty(broadcasts)) {
             return 0;
