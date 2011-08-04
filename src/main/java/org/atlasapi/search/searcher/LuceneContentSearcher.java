@@ -204,7 +204,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
     
     private int hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
-        broadcasts = Iterables.filter(broadcasts, Predicates.not(Broadcast.IS_REPEAT));
         if (Iterables.isEmpty(broadcasts)) {
             return 0;
         }
