@@ -31,167 +31,194 @@ import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
+import org.atlasapi.media.entity.testing.ItemTestDataBuilder;
 import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
+import org.joda.time.Duration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
+import com.metabroadcast.common.time.SystemClock;
 
 public class LuceneContentSearcherTest extends TestCase {
-	
-	private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
-	
-	Brand dragonsDen = brand("/den", "Dragon's den");
-	Brand doctorWho = brand("/doctorwho", "Doctor Who");
-	Brand theCityGardener = brand("/garden", "The City Gardener");
-	Brand eastenders = brand("/eastenders", "Eastenders");
-	Brand eastendersWeddings = brand("/eastenders-weddings", "Eastenders Weddings");
-	Brand politicsEast = brand("/politics", "The Politics Show East");
-	Brand meetTheMagoons = brand("/magoons", "Meet the Magoons");
-	Brand theJackDeeShow = brand("/dee", "The Jack Dee Show");
-	Brand peepShow = brand("/peep-show", "Peep Show");
-	Brand euromillionsDraw = brand("/draw", "EuroMillions Draw");
-	Brand haveIGotNewsForYou = brand("/news", "Have I Got News For You");
-	Brand brasseye = brand("/eye", "Brass Eye");
-	Brand science = brand("/science", "The Story of Science: Power, Proof and Passion");
-	Brand theApprentice = brand("/apprentice", "The Apprentice");
-	Item apparent = complexItem().withTitle("Without Apparent Motive").withUri("/item/apparent").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
-	
-	Person jamieOliver = person("/jamie", "Jamie Oliver");
 
-	Item englishForCats = item("/items/cats", "English for cats");
-	Item u2 = item("/items/u2", "U2 Ultraviolet");
-	
-	Item spooks = complexItem().withTitle("Spooks").withUri("/item/spooks").build();
-	Item spookyTheCat = complexItem().withTitle("Spooky the Cat").withUri("/item/spookythecat").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
-	
-	Item jamieOliversCookingProgramme = item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
-	Item gordonRamsaysCookingProgramme = item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
-	
-	List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+    private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
 
-	List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat);
-	List<Item> itemsUpdated = Arrays.asList(u2);
-	List<Person> people = Arrays.asList(jamieOliver);
-	
-	LuceneContentSearcher searcher;
-	
-	@Override
-	protected void setUp() throws Exception {
-		super.setUp();
-		Iterable<Described> allContent = Iterables.concat(brands, items, itemsUpdated, people);
-		searcher = new LuceneContentSearcher(new DummyKnownTypeContentResolver().respondTo(allContent));
-		searcher.contentChange(allContent);
-	}
-	
-	public void testFindingBrandsByTitle() throws Exception {
-		check(searcher.search(title("Aprentice")), theApprentice);
-		check(searcher.search(currentWeighted("apprent")), theApprentice, apparent);
-		check(searcher.search(title("den")), dragonsDen, theJackDeeShow);
-		check(searcher.search(title("dragon")), dragonsDen);
-		check(searcher.search(title("dragons")), dragonsDen);
-		check(searcher.search(title("drag den")), dragonsDen);
-		check(searcher.search(title("drag")), dragonsDen, euromillionsDraw);
-		check(searcher.search(title("dragon's den")), dragonsDen);
-		check(searcher.search(title("eastenders")),  eastenders, eastendersWeddings);
-		check(searcher.search(title("easteners")),  eastenders, eastendersWeddings);
-		check(searcher.search(title("eastedners")),  eastenders, eastendersWeddings);
-		check(searcher.search(title("politics east")),  politicsEast);
-		check(searcher.search(title("eas")),  eastenders, eastendersWeddings, politicsEast);
-		check(searcher.search(title("east")),  eastenders, eastendersWeddings, politicsEast);
-		check(searcher.search(title("end")));
-		check(searcher.search(title("peep show")),  peepShow);
-		check(searcher.search(title("peep s")),  peepShow);
-		check(searcher.search(title("dee")),  theJackDeeShow, dragonsDen);
-		check(searcher.search(title("jack show")),  theJackDeeShow);
-		check(searcher.search(title("the jack dee s")),  theJackDeeShow);
-		check(searcher.search(title("dee show")),  theJackDeeShow);
-		check(searcher.search(title("hav i got news")),  haveIGotNewsForYou);
-		check(searcher.search(title("brasseye")),  brasseye);
-		check(searcher.search(title("braseye")),  brasseye);
-		check(searcher.search(title("brassey")),  brasseye);
-		check(searcher.search(title("The Story of Science Power Proof and Passion")),  science);
-		check(searcher.search(title("The Story of Science: Power, Proof and Passion")),  science);
-		check(searcher.search(title("Jamie")), jamieOliver, jamieOliversCookingProgramme);
-		check(searcher.search(title("Spooks")), spooks, spookyTheCat);
-	}
-	
-	
-	protected static SearchQuery title(String term) {
-		return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
-	}
-	
-	protected static SearchQuery currentWeighted(String term) {
+    private final Brand dragonsDen = brand("/den", "Dragon's den");
+    private final Item dragonsDenItem = complexItem().withBrand(dragonsDen).withVersions(broadcast().buildInVersion()).build();
+    private final Brand doctorWho = brand("/doctorwho", "Doctor Who");
+    private final Item doctorWhoItem = complexItem().withBrand(doctorWho).withVersions(broadcast().buildInVersion()).build();
+    private final Brand theCityGardener = brand("/garden", "The City Gardener");
+    private final Item theCityGardenerItem = complexItem().withBrand(theCityGardener).withVersions(broadcast().buildInVersion()).build();
+    private final Brand eastenders = brand("/eastenders", "Eastenders");
+    private final Item eastendersItem = complexItem().withBrand(eastenders).withVersions(broadcast().buildInVersion()).build();
+    private final Brand eastendersWeddings = brand("/eastenders-weddings", "Eastenders Weddings");
+    private final Item eastendersWeddingsItem = complexItem().withBrand(eastendersWeddings).withVersions(broadcast().buildInVersion()).build();
+    private final Brand politicsEast = brand("/politics", "The Politics Show East");
+    private final Item politicsEastItem = complexItem().withBrand(politicsEast).withVersions(broadcast().buildInVersion()).build();
+    private final Brand meetTheMagoons = brand("/magoons", "Meet the Magoons");
+    private final Item meetTheMagoonsItem = complexItem().withBrand(meetTheMagoons).withVersions(broadcast().buildInVersion()).build();
+    private final Brand theJackDeeShow = brand("/dee", "The Jack Dee Show");
+    private final Item theJackDeeShowItem = complexItem().withBrand(theJackDeeShow).withVersions(broadcast().buildInVersion()).build();
+    private final Brand peepShow = brand("/peep-show", "Peep Show");
+    private final Item peepShowItem = complexItem().withBrand(peepShow).withVersions(broadcast().buildInVersion()).build();
+    private final Brand euromillionsDraw = brand("/draw", "EuroMillions Draw");
+    private final Item euromillionsDrawItem = complexItem().withBrand(euromillionsDraw).withVersions(broadcast().buildInVersion()).build();
+    private final Brand haveIGotNewsForYou = brand("/news", "Have I Got News For You");
+    private final Item haveIGotNewsForYouItem = complexItem().withBrand(haveIGotNewsForYou).withVersions(broadcast().buildInVersion()).build();
+    private final Brand brasseye = brand("/eye", "Brass Eye");
+    private final Item brasseyeItem = complexItem().withBrand(brasseye).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
+    private final Brand science = brand("/science", "The Story of Science: Power, Proof and Passion");
+    private final Item scienceItem = complexItem().withBrand(science).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
+    private final Brand theApprentice = brand("/apprentice", "The Apprentice");
+    private final Item theApprenticeItem = complexItem().withBrand(theApprentice).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
+
+    private final Item apparent = complexItem().withTitle("Without Apparent Motive").withUri("/item/apparent").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+
+    private final Item englishForCats = complexItem().withUri("/items/cats").withTitle("English for cats").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+    private final Item u2 = complexItem().withUri("/items/u2").withTitle("U2 Ultraviolet").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+
+    private final Item spooks = complexItem().withTitle("Spooks").withUri("/item/spooks")
+            .withVersions(version().withBroadcasts(broadcast().withStartTime(new SystemClock().now().minus(Duration.standardDays(365))).build()).build()).build();
+    private final Item spookyTheCat = complexItem().withTitle("Spooky the Cat").withUri("/item/spookythecat").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+
+    private final Item jamieOliversCookingProgramme = complexItem().withUri("/items/oliver/1").withTitle("Jamie Oliver's cooking programme")
+            .withDescription("lots of words that are the same alpha beta").withVersions(broadcast().buildInVersion()).build();
+    private final Item gordonRamsaysCookingProgramme = complexItem().withUri("/items/ramsay/2").withTitle("Gordon Ramsay's cooking show").withDescription("lots of words that are the same alpha beta")
+            .withVersions(broadcast().buildInVersion()).build();
+
+    private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
+            euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+
+    private final List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
+            theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
+            brasseyeItem, scienceItem, theApprenticeItem);
+    private final List<Item> itemsUpdated = Arrays.asList(u2);
+
+    private LuceneContentSearcher searcher;
+    private DummyKnownTypeContentResolver contentResolver;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        Iterable<Described> allContent = Iterables.<Described> concat(brands, items, itemsUpdated);
+        contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
+        searcher = new LuceneContentSearcher(contentResolver);
+        searcher.contentChange(allContent);
+    }
+
+    public void testFindingBrandsByTitle() throws Exception {
+        check(searcher.search(title("Aprentice")), theApprentice);
+        check(searcher.search(currentWeighted("apprent")), theApprentice, apparent);
+        check(searcher.search(title("den")), dragonsDen, theJackDeeShow);
+        check(searcher.search(title("dragon")), dragonsDen);
+        check(searcher.search(title("dragons")), dragonsDen);
+        check(searcher.search(title("drag den")), dragonsDen);
+        check(searcher.search(title("drag")), dragonsDen, euromillionsDraw);
+        check(searcher.search(title("dragon's den")), dragonsDen);
+        check(searcher.search(title("eastenders")), eastenders, eastendersWeddings);
+        check(searcher.search(title("easteners")), eastenders, eastendersWeddings);
+        check(searcher.search(title("eastedners")), eastenders, eastendersWeddings);
+        check(searcher.search(title("politics east")), politicsEast);
+        check(searcher.search(title("eas")), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(title("east")), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(title("end")));
+        check(searcher.search(title("peep show")), peepShow);
+        check(searcher.search(title("peep s")), peepShow);
+        check(searcher.search(title("dee")), theJackDeeShow, dragonsDen);
+        check(searcher.search(title("jack show")), theJackDeeShow);
+        check(searcher.search(title("the jack dee s")), theJackDeeShow);
+        check(searcher.search(title("dee show")), theJackDeeShow);
+        check(searcher.search(title("hav i got news")), haveIGotNewsForYou);
+        check(searcher.search(title("brasseye")), brasseye);
+        check(searcher.search(title("braseye")), brasseye);
+        check(searcher.search(title("brassey")), brasseye);
+        check(searcher.search(title("The Story of Science Power Proof and Passion")), science);
+        check(searcher.search(title("The Story of Science: Power, Proof and Passion")), science);
+        check(searcher.search(title("Jamie")), jamieOliversCookingProgramme);
+        check(searcher.search(title("Spooks")), spooks, spookyTheCat);
+    }
+
+    protected static SearchQuery title(String term) {
+        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
+    }
+
+    protected static SearchQuery currentWeighted(String term) {
         return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.2f, 0.2f);
     }
 
-	public void testLimitingToPublishers() throws Exception {
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), eastenders, eastendersWeddings, politicsEast);
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)));
-		
-		Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
-		east.setTitle("east");
-		searcher.contentChange(ImmutableList.of(east));
-		check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), east);
-	}
-	
-	public void testUsesPrefixSearchForShortSearches() throws Exception {
-		check(searcher.search(title("D")),  doctorWho, dragonsDen);
-		check(searcher.search(title("Dr")),  doctorWho, dragonsDen);
-		check(searcher.search(title("a")));
-	}
-	
-	public void testLimitAndOffset() throws Exception {
-		check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders, eastendersWeddings, politicsEast);
-		check(searcher.search(new SearchQuery("eas", Selection.limitedTo(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  eastenders, eastendersWeddings);
-		check(searcher.search(new SearchQuery("eas", Selection.offsetBy(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)),  politicsEast);
-	}
-	
-	public void testBroadcastLocationWeighting() {
-	    check(searcher.search(currentWeighted("spooks")), spooks, spookyTheCat);
-	    
-	    check(searcher.search(title("spook")), spooks, spookyTheCat);
-	    check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
-	}
+    public void testLimitingToPublishers() throws Exception {
+        check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)));
 
-	protected static void check(SearchResults result, Identified... content) {
-		assertThat(result.toUris(), is(toUris(Arrays.asList(content))));
-	}
+        Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
+        east.setTitle("east");
+        Item eastItem = complexItem().withVersions(broadcast().buildInVersion()).withBrand(east).build();
 
-	private static List<String> toUris(List<? extends Identified> content) {
-		List<String> uris = Lists.newArrayList();
-		for (Identified description : content) {
-			uris.add(description.getCanonicalUri());
-		}
-		return uris;
-	}
+        contentResolver.respondTo(ImmutableList.of(east, eastItem));
 
-	protected static Brand brand(String uri, String title) {
-		Brand b = new Brand(uri, uri, Publisher.BBC);
-		b.setTitle(title);
-		return b;
-	}
-	
-	protected static Item item(String uri, String title) {
-		return item(uri, title, null);
-	}
-	
-	protected static Item item(String uri, String title, String description) {
-		Item i = new Item();
-		i.setTitle(title);
-		i.setCanonicalUri(uri);
-		i.setDescription(description);
-		i.setPublisher(Publisher.BBC);
-		return i;
-	}
-	
-	protected static Person person(String uri, String title) {
-	    Person p = new Person(uri, uri, Publisher.BBC);
-	    p.setTitle(title);
-	    return p;
-	}
+        searcher.contentChange(ImmutableList.of(east));
+        check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), east);
+    }
+
+    public void testUsesPrefixSearchForShortSearches() throws Exception {
+        check(searcher.search(title("D")), doctorWho, dragonsDen);
+        check(searcher.search(title("Dr")), doctorWho, dragonsDen);
+        check(searcher.search(title("a")));
+    }
+
+    public void testLimitAndOffset() throws Exception {
+        check(searcher.search(new SearchQuery("eas", Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(new SearchQuery("eas", Selection.limitedTo(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)), eastenders, eastendersWeddings);
+        check(searcher.search(new SearchQuery("eas", Selection.offsetBy(2), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f)), politicsEast);
+    }
+
+    public void testBroadcastLocationWeighting() {
+        check(searcher.search(currentWeighted("spooks")), spooks, spookyTheCat);
+
+        check(searcher.search(title("spook")), spooks, spookyTheCat);
+        check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
+    }
+
+    protected static void check(SearchResults result, Identified... content) {
+        assertThat(result.toUris(), is(toUris(Arrays.asList(content))));
+    }
+
+    private static List<String> toUris(List<? extends Identified> content) {
+        List<String> uris = Lists.newArrayList();
+        for (Identified description : content) {
+            uris.add(description.getCanonicalUri());
+        }
+        return uris;
+    }
+
+    protected static Brand brand(String uri, String title) {
+        Brand b = new Brand(uri, uri, Publisher.BBC);
+        b.setTitle(title);
+        return b;
+    }
+
+    protected static Item item(String uri, String title) {
+        return item(uri, title, null);
+    }
+
+    protected static Item item(String uri, String title, String description) {
+        Item i = new Item();
+        i.setTitle(title);
+        i.setCanonicalUri(uri);
+        i.setDescription(description);
+        i.setPublisher(Publisher.BBC);
+        return i;
+    }
+
+    protected static Person person(String uri, String title) {
+        Person p = new Person(uri, uri, Publisher.BBC);
+        p.setTitle(title);
+        return p;
+    }
 }
