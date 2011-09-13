@@ -154,7 +154,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
 
     private boolean addBroadcastAndAvailabilityFields(Described content, Document doc) {
         Timestamp now = clock.timestamp();
-        
         int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
         
         if (content instanceof Item) {
@@ -164,9 +163,9 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
             int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
             
-            if (hourOfClosestBroadcast == 0 && content instanceof Film) {
-                // Films should pretend to be 30 days old (to keep cinema films in the search)
-                hourOfClosestBroadcast = hourOf(now.minus(Duration.standardDays(30)));
+            if (content instanceof Film) { 
+            	// Films should pretend to be at most 30 days old (to keep cinema films in the search)
+            	hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
             }
             
             if (hourOfClosestBroadcast < minHourTimestamp) {
