@@ -3,7 +3,6 @@ package org.atlasapi.search;
 
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
-import org.atlasapi.persistence.content.mongo.MongoContentTables;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
@@ -28,7 +27,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {
 	    
-	    MongoContentResolver contentResolver = new MongoContentResolver(new MongoContentTables(mongo()));
+	    MongoContentResolver contentResolver = new MongoContentResolver(mongo());
 	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(bootstrapper(), contentResolver);
 
 		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
@@ -38,7 +37,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	}
 	
 	@Bean MongoDbBackedContentBootstrapper bootstrapper() {
-	    MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(new MongoContentLister(new MongoContentTables(mongo())));
+	    MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(new MongoContentLister(mongo()));
 	    if(Boolean.valueOf(enablePeople)) {
 	        bootstrapper.withPeopleLister(new MongoPersonStore(mongo()));
 	    }

@@ -1,14 +1,13 @@
 package org.atlasapi.search.loader;
 
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
+import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentTable;
 import org.atlasapi.persistence.content.listing.ContentLister;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
-import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.search.searcher.ContentChangeListener;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
@@ -30,16 +29,11 @@ public class MongoDbBackedContentListenerTest  {
     private ContentChangeListener listener = context.mock(ContentChangeListener.class);
     private final ContentLister lister = new ContentLister() {
 
-        List<Item> contents = ImmutableList.of(item1, item2, item3);
+        List<Content> contents = ImmutableList.<Content>of(item1, item2, item3);
 
         @Override
-        public boolean listContent(Set<ContentTable> tables, ContentListingCriteria criteria, ContentListingHandler handler) {
-            for (ContentTable contentTable : tables) {
-                if(contentTable.equals(ContentTable.TOP_LEVEL_ITEMS)) {
-                    handler.handle(contents, criteria.getProgress());
-                }
-            }
-            return true;
+        public Iterator<Content> listContent(ContentListingCriteria criteria) {
+            return contents.iterator();
         }
     };
    

@@ -14,26 +14,27 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.loader;
 
-import static org.atlasapi.persistence.content.ContentTable.TOP_LEVEL_CONTAINERS;
-import static org.atlasapi.persistence.content.ContentTable.TOP_LEVEL_ITEMS;
+import static com.google.common.base.Predicates.notNull;
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Person;
+import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.PeopleLister;
 import org.atlasapi.persistence.content.PeopleListerListener;
-
 import org.atlasapi.persistence.content.listing.ContentLister;
-import org.atlasapi.persistence.content.listing.ContentListingCriteria;
-import org.atlasapi.persistence.content.listing.ContentListingHandler;
 import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 
 public class MongoDbBackedContentBootstrapper {
 	
@@ -56,32 +57,41 @@ public class MongoDbBackedContentBootstrapper {
             log.info("Bootstrapping top level content");
         }
 	    
-		final AtomicInteger numberProcessed = new AtomicInteger(0);
-		
-        ContentListingHandler handler = new ContentListingHandler() {
-            @Override
-            public boolean handle(Iterable<? extends Content> contents, ContentListingProgress progress) {
-                listener.contentChange(contents);
-                numberProcessed.incrementAndGet();
-                log.info(progress.toString());
-                return true; 
-            }
-        };
+		int contentProcessed = 0;
         
-        contentLister.listContent(ImmutableSet.of(TOP_LEVEL_CONTAINERS, TOP_LEVEL_ITEMS), ContentListingCriteria.defaultCriteria(), handler);
+        Iterator<Content> content = contentLister.listContent(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
+        Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
+        
+        while (partitionedContent.hasNext()) {
+            List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
+            listener.contentChange(partition);
+            
+            contentProcessed += partition.size();
+            if (log.isInfoEnabled()) {
+                log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+            }
+        }
+        
+        if (log.isInfoEnabled()) {
+            log.info(String.format("Finished bootstrapping %s content.", contentProcessed));
+            log.info("Bootstrapping people.");
+        }
+        
+        final AtomicInteger peopleProcessed = new AtomicInteger(0);
 		
         if(peopleLister != null) {
 		    peopleLister.list(new PeopleListerListener() {
                 @Override
                 public void personListed(Person person) {
                     listener.contentChange(ImmutableList.of(person));
-                    numberProcessed.incrementAndGet();
+                    peopleProcessed.incrementAndGet();
                 }
             });
 		}
 		
 		if (log.isInfoEnabled()) {
-		    log.info("Passed "+numberProcessed+" to content change listener");
+		    log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
+		    log.info("Passed "+ (contentProcessed + peopleProcessed.get()) +" to content change listener");
 		}
 	}
 }
