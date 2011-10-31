@@ -309,7 +309,13 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         
         @Override
         public float customScore(int doc, float subQueryScore, float broadcastHour) {
-            float broadcastScore = (float) (1f / (Math.abs(currentHour - broadcastHour) + 1));
+        	float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
+        	
+        	// This is inverted; a higher number means we scale less. We up-weigh
+        	// items broadcast or to be broadcast in the last week.
+        	int scalingFactor = hoursBetweenBroadcastAndNow < 168 ? 10 : 1;
+        	
+            float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
             return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
         }
     }
