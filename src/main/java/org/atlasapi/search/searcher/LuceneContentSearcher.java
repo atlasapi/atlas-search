@@ -313,7 +313,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         	
         	// This is inverted; a higher number means we scale less. We up-weigh
         	// items broadcast or to be broadcast in the last week.
-        	int scalingFactor = hoursBetweenBroadcastAndNow < 168 ? 10 : 1;
+        	int scalingFactor = hoursBetweenBroadcastAndNow < 168 ? 50 : 1;
         	
             float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
             return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
