@@ -92,6 +92,8 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private static final String FIELD_AVAILABLE = "available";
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
     
+    private static final int HOURS_IN_A_WEEK = 168;
+    
     private static final String TRUE = "T";
     
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
@@ -309,7 +311,13 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         
         @Override
         public float customScore(int doc, float subQueryScore, float broadcastHour) {
-            float broadcastScore = (float) (1f / (Math.abs(currentHour - broadcastHour) + 1));
+        	float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
+        	
+        	// This is inverted; a higher number means we scale less. We up-weigh
+        	// items broadcast or to be broadcast in the last week.
+        	int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
+        	
+            float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
             return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
         }
     }
