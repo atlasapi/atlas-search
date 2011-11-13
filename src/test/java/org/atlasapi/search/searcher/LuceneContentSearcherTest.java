@@ -169,7 +169,7 @@ public class LuceneContentSearcherTest extends TestCase {
     public void testUsesPrefixSearchForShortSearches() throws Exception {
         check(searcher.search(title("D")), doctorWho, dragonsDen);
         check(searcher.search(title("Dr")), doctorWho, dragonsDen);
-        check(searcher.search(title("a")));
+        check(searcher.search(title("l")));
     }
 
     public void testLimitAndOffset() throws Exception {
