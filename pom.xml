@@ -5,8 +5,8 @@
     <packaging>war</packaging>
     <name>Atlas Search</name>
     <url>http://docs.atlasapi.org</url>
-    <version>4.0-SNAPSHOT</version>
-    <description>Atlas 2.0 API</description>
+    <version>5.0-SNAPSHOT</version>
+    <description>Atlas 3.0 API</description>
 
     <build>
         <finalName>atlas-search</finalName>
