@@ -158,6 +158,6 @@ public class TitleQueryBuilder {
 	}
 
 	public String flatten(String title) {
-		return title.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+		return Joiner.on("").join(tokens(title)).replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
 	}
 }
