@@ -205,11 +205,20 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
     
     private int hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
-        if (Iterables.isEmpty(broadcasts)) {
+    	Iterable<Broadcast> publishedBroadcasts = Iterables.filter(broadcasts, new Predicate<Broadcast>() {
+
+			@Override
+			public boolean apply(Broadcast input) {
+				return input.isActivelyPublished();
+			}
+    		
+    	});
+    	
+        if (Iterables.isEmpty(publishedBroadcasts)) {
             return 0;
         }
         
-        Broadcast closest = sinceBroadcast(now).min(broadcasts);
+        Broadcast closest = sinceBroadcast(now).min(publishedBroadcasts);
         if (closest.getTransmissionTime() == null) {
             return 0;
         }
