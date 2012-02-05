@@ -63,13 +63,18 @@ public class MongoDbBackedContentBootstrapper {
         Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
         
         while (partitionedContent.hasNext()) {
-            List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
-            listener.contentChange(partition);
-            
-            contentProcessed += partition.size();
-            if (log.isInfoEnabled()) {
-                log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
-            }
+        	try {
+	            List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
+	            listener.contentChange(partition);
+	            
+	            contentProcessed += partition.size();
+	            if (log.isInfoEnabled()) {
+	                log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+	            }
+        	}
+	        catch(Exception e) {
+	        	log.error("Error processing batch", e);
+	        }
         }
         
         if (log.isInfoEnabled()) {
