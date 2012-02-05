@@ -446,10 +446,12 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     @Override
     public void contentChange(Iterable<? extends Described> contents) {
         IndexWriter writer = null;
+        Described lastProcessed = null;
         try {
             writer = writerFor(contentDir);
             writer.setWriteLockTimeout(5000);
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
+            	lastProcessed = content;
                 Document doc = asDocument(content);
                 if (doc != null) {
                     writer.addDocument(doc);
@@ -458,7 +460,12 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 }
             }
         } catch(Exception e) {
-            throw new RuntimeException(e);
+        	if(lastProcessed != null) {
+        		log.error(String.format("Failed to process batch, last item see had uri %s", lastProcessed.getCanonicalUri()), e);
+        	}
+        	else {
+        		log.error("Failed to process batch", e);
+        	}
         } finally {
             if (writer != null) {
                 closeWriter(writer);
