@@ -48,23 +48,23 @@ public class SearchServlet extends HttpServlet {
             return;
         }
 
-        Maybe<Float> titleWeighting = getFloatParameter("titleWeighting", request, response);
+        Maybe<Float> titleWeighting = getFloatParameter("titleWeighting", request, response, true);
         if (titleWeighting.isNothing()) {
             return;
         }
 
-        Maybe<Float> broadcastWeighting = getFloatParameter("broadcastWeighting", request, response);
+        Maybe<Float> broadcastWeighting = getFloatParameter("broadcastWeighting", request, response, true);
         if (broadcastWeighting.isNothing()) {
             return;
         }
 
-        Maybe<Float> catchupWeighting = getFloatParameter("catchupWeighting", request, response);
+        Maybe<Float> catchupWeighting = getFloatParameter("catchupWeighting", request, response, true);
         if (catchupWeighting.isNothing()) {
             return;
         }
 
-        Maybe<Float> priorityChannelWeighting = getFloatParameter("priorityChannelWeighting", request, response);
-        Maybe<Float> firstBroadcastWeighting = getFloatParameter("firstBroadcastWeighting", request, response);
+        Maybe<Float> priorityChannelWeighting = getFloatParameter("priorityChannelWeighting", request, response, false);
+        Maybe<Float> firstBroadcastWeighting = getFloatParameter("firstBroadcastWeighting", request, response, false);
         
         String publishersCsv = request.getParameter("publishers");
         if (Strings.isNullOrEmpty(publishersCsv)) {
@@ -97,7 +97,7 @@ public class SearchServlet extends HttpServlet {
 
     }
 
-    private Maybe<Float> getFloatParameter(String parameterName, HttpServletRequest request, HttpServletResponse response) throws IOException {
+    private Maybe<Float> getFloatParameter(String parameterName, HttpServletRequest request, HttpServletResponse response, boolean required) throws IOException {
         String parameterValue = request.getParameter(parameterName);
         if (!Strings.isNullOrEmpty(parameterValue)) {
             if (MoreStrings.containsOnlyDecimalCharacters(parameterValue)) {
@@ -106,8 +106,10 @@ public class SearchServlet extends HttpServlet {
                 view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Invalid value of parameter '" + parameterName + "'"));
                 return Maybe.nothing();
             }
-        } else {
+        } else if(required) {
             view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required parameter '" + parameterName + "'"));
+            return Maybe.nothing();
+        } else {
             return Maybe.nothing();
         }
     }
