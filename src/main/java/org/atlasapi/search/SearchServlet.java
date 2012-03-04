@@ -63,6 +63,9 @@ public class SearchServlet extends HttpServlet {
             return;
         }
 
+        Maybe<Float> priorityChannelWeighting = getFloatParameter("priorityChannelWeighting", request, response);
+        Maybe<Float> firstBroadcastWeighting = getFloatParameter("firstBroadcastWeighting", request, response);
+        
         String publishersCsv = request.getParameter("publishers");
         if (Strings.isNullOrEmpty(publishersCsv)) {
             view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required (and non-empty) parameter 'publishers'"));
@@ -86,10 +89,10 @@ public class SearchServlet extends HttpServlet {
             ServletOutputStream outputStream = response.getOutputStream();
             outputStream.write(searcher.debug(
                     new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
-                            .requireValue())).getBytes());
+                            .requireValue(), priorityChannelWeighting, firstBroadcastWeighting)).getBytes());
         } else {
             view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
-                    catchupWeighting.requireValue())), request, response);
+                    catchupWeighting.requireValue(), priorityChannelWeighting, firstBroadcastWeighting)), request, response);
         }
 
     }
