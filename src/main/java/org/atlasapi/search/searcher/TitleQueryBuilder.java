@@ -37,6 +37,7 @@ import org.apache.lucene.util.Version;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -53,7 +54,7 @@ public class TitleQueryBuilder {
 	
 	Query build(String queryString) {	
 		
-		List<String> tokens = tokens(queryString);
+		List<String> tokens = tokens(queryString, true);
 		
 		if (shouldUsePrefixSearch(tokens)) {
 			return prefixSearch(Iterables.getOnlyElement(tokens));
@@ -143,8 +144,14 @@ public class TitleQueryBuilder {
 		return new FuzzyQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattened), 0.8f, USE_PREFIX_SEARCH_UP_TO);
 	}
 	
-	private static List<String> tokens(String queryString) {
-		TokenStream tokens = new StandardAnalyzer(Version.LUCENE_30).tokenStream("", new StringReader(queryString));
+	private static List<String> tokens(String queryString, boolean filterStopWords) {
+	    TokenStream tokens;
+	    if(filterStopWords) {
+	        tokens = new StandardAnalyzer(Version.LUCENE_30).tokenStream("", new StringReader(queryString));
+	    }
+	    else {
+	        tokens = new StandardAnalyzer(Version.LUCENE_30, ImmutableSet.of()).tokenStream("", new StringReader(queryString));
+	    }
 		List<String> tokensAsStrings = Lists.newArrayList();
 		try {
 			while(tokens.incrementToken()) {
@@ -154,10 +161,15 @@ public class TitleQueryBuilder {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		return tokensAsStrings;
+		if(tokensAsStrings.isEmpty() && filterStopWords) {
+		    return tokens(queryString, false);
+		}
+		else {
+		    return tokensAsStrings;
+		}
 	}
 
 	public String flatten(String title) {
-		return Joiner.on("").join(tokens(title)).replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+		return Joiner.on("").join(tokens(title, true)).replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
 	}
 }
