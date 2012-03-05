@@ -397,7 +397,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         
         query = new BooleanBoostScore(query, FIELD_PRIORITY_CHANNEL).withWeighting(q.getPriorityChannelWeighting().valueOrDefault(250.0f));
-        query = new BooleanBoostScore(query, FIELD_FIRST_BROADCAST).withWeighting(q.getFirstBroadcastWeighting().valueOrDefault(100.0f));
+        query = new BooleanBoostScore(query, FIELD_FIRST_BROADCAST).withWeighting(q.getFirstBroadcastWeighting().valueOrDefault(1.0f));
         
         return query;
     }
