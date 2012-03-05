@@ -104,12 +104,14 @@ public class LuceneContentSearcherTest extends TestCase {
     private final Brand hellsKitchenUSA = brand("/hellskitchenusa", "Hell's Kitchen");
     private final Item hellsKitchenUSAItem = complexItem().withBrand(hellsKitchenUSA).withVersions(broadcast().buildInVersion()).build();
     
+    private final Item we = complexItem().withTitle("W.E.").withUri("/item/we").withVersions(version().withBroadcasts(broadcast().build()).build()).build();
+
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
             euromillionsDraw, brasseye, science, politicsEast, theApprentice, rugby, sixNationsRugby, hellsKitchen, hellsKitchenUSA);
 
     private final List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
             theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-            brasseyeItem, scienceItem, theApprenticeItem, rugbyItem, sixNationsRugbyItem, hellsKitchenItem, hellsKitchenUSAItem);
+            brasseyeItem, scienceItem, theApprenticeItem, rugbyItem, sixNationsRugbyItem, hellsKitchenItem, hellsKitchenUSAItem, we);
 
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
@@ -155,6 +157,7 @@ public class LuceneContentSearcherTest extends TestCase {
         check(searcher.search(title("The Story of Science: Power, Proof and Passion")), science);
         check(searcher.search(title("Jamie")), jamieOliversCookingProgramme);
         check(searcher.search(title("Spooks")), spooks, spookyTheCat);
+        check(searcher.search(title("WE")), we);
     }
 
     protected static SearchQuery title(String term) {
