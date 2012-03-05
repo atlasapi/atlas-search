@@ -96,24 +96,31 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private static final String FIELD_FIRST_BROADCAST = "firstBroadcast";
     
     private static final Set<String> PRIORITY_CHANNELS = ImmutableSet.<String>builder()
-    		.add("http://www.bbc.co.uk/services/bbcone/east")
-    		.add("http://www.bbc.co.uk/services/bbcone/london")
-    		.add("http://www.bbc.co.uk/services/bbcone/west_midlands")
-    		.add("http://www.bbc.co.uk/services/bbcone/east_midlands")
-    		.add("http://www.bbc.co.uk/services/bbcone/yorkshire")
-    		.add("http://www.bbc.co.uk/services/bbcone/north_east")
-    		.add("http://www.bbc.co.uk/services/bbcone/north_west")
-    		.add("http://www.bbc.co.uk/services/bbcone/ni")
-    		.add("http://www.bbc.co.uk/services/bbcone/wales")
-    		.add("http://www.bbc.co.uk/services/bbcone/scotland")
-    		.add("http://www.bbc.co.uk/services/bbcone/south")
-    		.add("http://www.bbc.co.uk/services/bbcone/south_west")
-    		.add("http://www.bbc.co.uk/services/bbcone/west")
-    		.add("http://www.bbc.co.uk/services/bbcone/south_east")
-    		.add("http://www.bbc.co.uk/services/bbctwo/england")
-    		.add("http://www.bbc.co.uk/services/bbctwo/ni")
-    		.add("http://www.bbc.co.uk/services/bbctwo/scotland")
-    		.add("http://www.bbc.co.uk/services/bbctwo/wales")
+            .add("http://www.bbc.co.uk/services/bbcone/london")
+            .add("http://www.bbc.co.uk/services/bbcone/ni")
+            .add("http://www.bbc.co.uk/services/bbcone/cambridge")
+            .add("http://www.bbc.co.uk/services/bbcone/channel_islands")
+            .add("http://www.bbc.co.uk/services/bbcone/east")
+            .add("http://www.bbc.co.uk/services/bbcone/east_midlands")
+            .add("http://www.bbc.co.uk/services/bbcone/hd")
+            .add("http://www.bbc.co.uk/services/bbcone/north_east")
+            .add("http://www.bbc.co.uk/services/bbcone/north_west")
+            .add("http://www.bbc.co.uk/services/bbcone/oxford")
+            .add("http://www.bbc.co.uk/services/bbcone/scotland")
+            .add("http://www.bbc.co.uk/services/bbcone/south")
+            .add("http://www.bbc.co.uk/services/bbcone/south_east")
+            .add("http://www.bbc.co.uk/services/bbcone/wales")
+            .add("http://www.bbc.co.uk/services/bbcone/south_west")
+            .add("http://www.bbc.co.uk/services/bbcone/west")
+            .add("http://www.bbc.co.uk/services/bbcone/west_midlands")
+            .add("http://www.bbc.co.uk/services/bbcone/east_yorkshire")
+            .add("http://www.bbc.co.uk/services/bbcone/yorkshire")
+            .add("http://www.bbc.co.uk/services/bbctwo/england")
+            .add("http://www.bbc.co.uk/services/bbctwo/ni")
+            .add("http://www.bbc.co.uk/services/bbctwo/ni_analogue")
+            .add("http://www.bbc.co.uk/services/bbctwo/scotland")
+            .add("http://www.bbc.co.uk/services/bbctwo/wales")
+            .add("http://www.bbc.co.uk/services/bbctwo/wales_analogue")
     		.add("http://www.itv.com/channels/itv1/anglia")
     		.add("http://www.itv.com/channels/itv1/bordersouth")
     		.add("http://www.itv.com/channels/itv1/london")
@@ -390,7 +397,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         
         query = new BooleanBoostScore(query, FIELD_PRIORITY_CHANNEL).withWeighting(q.getPriorityChannelWeighting().valueOrDefault(250.0f));
-        query = new BooleanBoostScore(query, FIELD_FIRST_BROADCAST).withWeighting(q.getFirstBroadcastWeighting().valueOrDefault(100.0f));
+        query = new BooleanBoostScore(query, FIELD_FIRST_BROADCAST).withWeighting(q.getFirstBroadcastWeighting().valueOrDefault(1.0f));
         
         return query;
     }
