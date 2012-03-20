@@ -8,12 +8,15 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResultsError;
 import org.atlasapi.search.view.SearchResultsView;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.metabroadcast.common.base.Maybe;
 import com.metabroadcast.common.http.HttpStatusCode;
 import com.metabroadcast.common.media.MimeType;
@@ -23,6 +26,8 @@ import com.metabroadcast.common.text.MoreStrings;
 
 public class SearchServlet extends HttpServlet {
 
+    private static final Log log = LogFactory.getLog(SearchServlet.class);
+    
     private static final SelectionBuilder SELECTION_BUILDER = Selection.builder();
 
     private static final long serialVersionUID = 1L;
@@ -64,14 +69,26 @@ public class SearchServlet extends HttpServlet {
             return;
         }
 
+        ImmutableList<Publisher> publishers;
+        try {
+            publishers = Publisher.fromCsv(publishersCsv);
+        } catch (IllegalArgumentException e) {
+            view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, e.getMessage()));
+            return;
+        } catch (Exception e) {
+            view.renderError(request, response, new SearchResultsError(HttpStatusCode.SERVER_ERROR, "Problem processing specified publishers"));
+            log.error(e.getMessage(), e);
+            return;
+        }
+        
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
             ServletOutputStream outputStream = response.getOutputStream();
             outputStream.write(searcher.debug(
-                    new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv), titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
+                    new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
                             .requireValue())).getBytes());
         } else {
-            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), Publisher.fromCsv(publishersCsv), titleWeighting.requireValue(), broadcastWeighting.requireValue(),
+            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
                     catchupWeighting.requireValue())), request, response);
         }
 
