@@ -14,9 +14,9 @@ permissions and limitations under the License. */
 
 package org.atlasapi.search.searcher;
 
-import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
-import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
-import static org.atlasapi.media.entity.testing.VersionTestDataBuilder.version;
+import static org.atlasapi.media.content.support.ComplexBroadcastTestDataBuilder.broadcast;
+import static org.atlasapi.media.content.support.ComplexItemTestDataBuilder.complexItem;
+import static org.atlasapi.media.content.support.VersionTestDataBuilder.version;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -25,15 +25,16 @@ import java.util.List;
 
 import junit.framework.TestCase;
 
-import org.atlasapi.media.entity.Brand;
-import org.atlasapi.media.entity.Described;
-import org.atlasapi.media.entity.Identified;
-import org.atlasapi.media.entity.Item;
-import org.atlasapi.media.entity.Person;
-import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
-import org.atlasapi.media.entity.testing.ItemTestDataBuilder;
-import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
+import org.atlasapi.media.content.Brand;
+import org.atlasapi.media.content.Described;
+import org.atlasapi.media.content.Identified;
+import org.atlasapi.media.content.Item;
+import org.atlasapi.media.content.Person;
+import org.atlasapi.media.content.Publisher;
+import org.atlasapi.media.content.Specialization;
+import org.atlasapi.media.content.support.ComplexBroadcastTestDataBuilder;
+import org.atlasapi.media.content.support.ItemTestDataBuilder;
+import org.atlasapi.media.content.util.DummyKnownTypeContentResolver;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
@@ -48,7 +49,6 @@ import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import java.io.File;
 import java.util.UUID;
-import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentIndexTest extends TestCase {
 

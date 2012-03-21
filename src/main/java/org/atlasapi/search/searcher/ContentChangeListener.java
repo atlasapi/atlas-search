@@ -1,6 +1,6 @@
 package org.atlasapi.search.searcher;
 
-import org.atlasapi.media.entity.Described;
+import org.atlasapi.media.content.Described;
 
 
 public interface ContentChangeListener {

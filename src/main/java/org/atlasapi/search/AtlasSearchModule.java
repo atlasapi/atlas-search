@@ -1,10 +1,17 @@
 package org.atlasapi.search;
 
 
-import com.google.common.base.Splitter;
-import org.atlasapi.persistence.content.mongo.MongoContentLister;
-import org.atlasapi.persistence.content.mongo.MongoContentResolver;
-import org.atlasapi.persistence.content.mongo.MongoPersonStore;
+import java.io.File;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.atlasapi.media.content.MongoContentLister;
+import org.atlasapi.media.content.MongoContentResolver;
+import org.atlasapi.media.content.MongoPersonStore;
+import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
+import org.atlasapi.search.loader.ContentBootstrapper;
+import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
@@ -12,19 +19,13 @@ import org.atlasapi.search.www.HealthController;
 import org.atlasapi.search.www.WebAwareModule;
 import org.springframework.context.annotation.Bean;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.mongodb.Mongo;
-import java.io.File;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
-import org.atlasapi.search.loader.ContentBootstrapper;
-import org.atlasapi.search.searcher.LuceneContentIndex;
 
 public class AtlasSearchModule extends WebAwareModule {
 

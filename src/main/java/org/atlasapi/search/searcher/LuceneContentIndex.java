@@ -13,6 +13,7 @@
  permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +33,7 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.Filter;
+import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -43,18 +45,21 @@ import org.apache.lucene.search.function.CustomScoreQuery;
 import org.apache.lucene.search.function.IntFieldSource;
 import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.util.Version;
-import org.atlasapi.media.entity.Broadcast;
-import org.atlasapi.media.entity.Container;
-import org.atlasapi.media.entity.ContentGroup;
-import org.atlasapi.media.entity.Described;
-import org.atlasapi.media.entity.Film;
-import org.atlasapi.media.entity.Item;
-import org.atlasapi.media.entity.LookupRef;
-import org.atlasapi.media.entity.Person;
-import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.KnownTypeContentResolver;
+import org.atlasapi.media.content.Broadcast;
+import org.atlasapi.media.content.Container;
+import org.atlasapi.media.content.ContentGroup;
+import org.atlasapi.media.content.Described;
+import org.atlasapi.media.content.Film;
+import org.atlasapi.media.content.Item;
+import org.atlasapi.media.content.LookupRef;
+import org.atlasapi.media.content.Person;
+import org.atlasapi.media.content.Publisher;
+import org.atlasapi.media.content.Song;
+import org.atlasapi.media.content.Specialization;
+import org.atlasapi.media.content.util.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
@@ -74,11 +79,6 @@ import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
 import com.metabroadcast.common.time.Timestamper;
-import java.io.File;
-import org.apache.lucene.search.FilteredQuery;
-import org.apache.lucene.store.FSDirectory;
-import org.atlasapi.media.entity.Song;
-import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     

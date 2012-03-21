@@ -10,7 +10,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.media.content.Publisher;
+import org.atlasapi.media.content.Specialization;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResultsError;
 import org.atlasapi.search.view.SearchResultsView;
@@ -25,7 +26,6 @@ import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
 import java.util.Arrays;
 import java.util.Set;
-import org.atlasapi.media.entity.Specialization;
 
 public class SearchServlet extends HttpServlet {
 

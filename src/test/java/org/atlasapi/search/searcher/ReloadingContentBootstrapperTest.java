@@ -1,18 +1,18 @@
 package org.atlasapi.search.searcher;
 
-import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
-import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
+import static org.atlasapi.media.content.support.ComplexBroadcastTestDataBuilder.broadcast;
+import static org.atlasapi.media.content.support.ComplexItemTestDataBuilder.complexItem;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.atlasapi.media.entity.Brand;
-import org.atlasapi.media.entity.Container;
-import org.atlasapi.media.entity.Item;
-import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
-import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
-import org.atlasapi.persistence.content.KnownTypeContentResolver;
+import org.atlasapi.media.content.Brand;
+import org.atlasapi.media.content.Container;
+import org.atlasapi.media.content.Item;
+import org.atlasapi.media.content.support.ComplexBroadcastTestDataBuilder;
+import org.atlasapi.media.content.util.DummyKnownTypeContentResolver;
+import org.atlasapi.media.content.util.KnownTypeContentResolver;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JMock;
 import org.jmock.lib.concurrent.DeterministicScheduler;
