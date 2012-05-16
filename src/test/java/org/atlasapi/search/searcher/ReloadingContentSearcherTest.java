@@ -22,6 +22,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.google.common.collect.ImmutableList;
+import java.io.File;
+import java.util.UUID;
+import org.junit.Before;
 
 @RunWith(JMock.class)
 public class ReloadingContentSearcherTest {
@@ -50,28 +53,33 @@ public class ReloadingContentSearcherTest {
     private final Item scienceItem = complexItem().withBrand(science).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
     private final Brand theApprentice = LuceneContentSearcherTest.brand("/apprentice", "The Apprentice");
     private final Item theApprenticeItem = complexItem().withBrand(theApprentice).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
-
     private final Item englishForCats = LuceneContentSearcherTest.item("/items/cats", "English for cats");
     private final Item u2 = LuceneContentSearcherTest.item("/items/u2", "U2 Ultraviolet");
-
     private final Item jamieOliversCookingProgramme = LuceneContentSearcherTest.item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
     private final Item gordonRamsaysCookingProgramme = LuceneContentSearcherTest.item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
-
-    private final List<Container> containers = Arrays.<Container> asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw,
+    private final List<Container> containers = Arrays.<Container>asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw,
             brasseye, science, politicsEast, theApprentice);
     private final List<Item> items = ImmutableList.of(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2, dragonsDenItem, theCityGardenerItem, eastendersItem,
             politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem, brasseyeItem, scienceItem, theApprenticeItem);
-
     private final DummyContentLister retroLister = new DummyContentLister().loadContainerLister(containers).loadTopLevelItemLister(items);
-
     private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister);
     @SuppressWarnings("unused")
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
-
     private final KnownTypeContentResolver contentResolver = new DummyKnownTypeContentResolver().respondTo(containers).respondTo(items);
+    private volatile ReloadingContentSearcher reloader;
 
-    private final ReloadingContentSearcher reloader = new ReloadingContentSearcher(bootstrapper, contentResolver, scheduler);
+    @Before
+    public void setUp() throws Exception {
+        File luceneDir = new File(System.getProperty("java.io.tmpdir") + File.separatorChar + UUID.randomUUID());
+        if (luceneDir.mkdir()) {
+            luceneDir.deleteOnExit();
+            LuceneContentSearcher searcher = new LuceneContentSearcher(luceneDir, contentResolver);
+            reloader = new ReloadingContentSearcher(searcher, bootstrapper, scheduler);
+        } else {
+            throw new IllegalStateException();
+        }
+    }
 
     @Test
     public void shouldLoadAndReloadSearch() {

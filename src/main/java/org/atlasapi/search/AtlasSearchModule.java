@@ -17,18 +17,21 @@ import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.mongodb.Mongo;
+import java.io.File;
+import org.atlasapi.search.searcher.LuceneContentSearcher;
 
 public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String dbName = Configurer.get("mongo.dbName").get();
+    private final String luceneDir = Configurer.get("lucene.contentDir").get();
 	private final String enablePeople = Configurer.get("people.enabled").get();
 
 	@Override
 	public void configure() {
 	    
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo());
-	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(bootstrapper(), contentResolver);
+	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(new LuceneContentSearcher(new File(luceneDir), contentResolver), bootstrapper());
 
 		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), lucene));

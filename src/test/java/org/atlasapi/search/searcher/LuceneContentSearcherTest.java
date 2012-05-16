@@ -44,6 +44,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
+import java.io.File;
+import java.util.UUID;
 
 public class LuceneContentSearcherTest extends TestCase {
 
@@ -106,10 +108,16 @@ public class LuceneContentSearcherTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        Iterable<Described> allContent = Iterables.<Described> concat(brands, items, itemsUpdated);
-        contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
-        searcher = new LuceneContentSearcher(contentResolver);
-        searcher.contentChange(allContent);
+        Iterable<Described> allContent = Iterables.<Described>concat(brands, items, itemsUpdated);
+        File luceneDir = new File(System.getProperty("java.io.tmpdir") + File.separatorChar + UUID.randomUUID());
+        if (luceneDir.mkdir()) {
+            luceneDir.deleteOnExit();
+            contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
+            searcher = new LuceneContentSearcher(luceneDir, contentResolver);
+            searcher.contentChange(allContent);
+        } else {
+            throw new IllegalAccessException();
+        }
     }
 
     public void testFindingBrandsByTitle() throws Exception {
@@ -143,13 +151,16 @@ public class LuceneContentSearcherTest extends TestCase {
         check(searcher.search(title("Jamie")), jamieOliversCookingProgramme);
         check(searcher.search(title("Spooks")), spooks, spookyTheCat);
     }
-
-    protected static SearchQuery title(String term) {
-        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
-    }
-
-    protected static SearchQuery currentWeighted(String term) {
-        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.2f, 0.2f);
+    
+    public void testFindingBrandsByTitleAfterUpdate() throws Exception {
+        check(searcher.search(title("Aprentice")), theApprentice);
+        //
+        Brand theApprentice2 = new Brand();
+        Brand.copyTo(theApprentice, theApprentice2);
+        theApprentice2.setTitle("The Apprentice2");
+        searcher.contentChange(Arrays.asList(theApprentice2));
+        //
+        check(searcher.search(title("Aprentice2")), theApprentice);
     }
 
     public void testLimitingToPublishers() throws Exception {
@@ -184,17 +195,17 @@ public class LuceneContentSearcherTest extends TestCase {
         check(searcher.search(title("spook")), spooks, spookyTheCat);
         check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
     }
+    
+    protected static SearchQuery title(String term) {
+        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
+    }
+
+    protected static SearchQuery currentWeighted(String term) {
+        return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.2f, 0.2f);
+    }
 
     protected static void check(SearchResults result, Identified... content) {
         assertThat(result.toUris(), is(toUris(Arrays.asList(content))));
-    }
-
-    private static List<String> toUris(List<? extends Identified> content) {
-        List<String> uris = Lists.newArrayList();
-        for (Identified description : content) {
-            uris.add(description.getCanonicalUri());
-        }
-        return uris;
     }
 
     protected static Brand brand(String uri, String title) {
@@ -220,5 +231,13 @@ public class LuceneContentSearcherTest extends TestCase {
         Person p = new Person(uri, uri, Publisher.BBC);
         p.setTitle(title);
         return p;
+    }
+    
+    private static List<String> toUris(List<? extends Identified> content) {
+        List<String> uris = Lists.newArrayList();
+        for (Identified description : content) {
+            uris.add(description.getCanonicalUri());
+        }
+        return uris;
     }
 }
