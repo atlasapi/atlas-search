@@ -13,7 +13,6 @@ import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
 import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
-import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JMock;
 import org.jmock.lib.concurrent.DeterministicScheduler;
@@ -24,6 +23,7 @@ import org.junit.runner.RunWith;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.util.UUID;
+import org.atlasapi.search.loader.ContentBootstrapper;
 import org.junit.Before;
 
 @RunWith(JMock.class)
@@ -62,7 +62,7 @@ public class ReloadingContentSearcherTest {
     private final List<Item> items = ImmutableList.of(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2, dragonsDenItem, theCityGardenerItem, eastendersItem,
             politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem, brasseyeItem, scienceItem, theApprenticeItem);
     private final DummyContentLister retroLister = new DummyContentLister().loadContainerLister(containers).loadTopLevelItemLister(items);
-    private final MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(retroLister);
+    private final ContentBootstrapper bootstrapper = new ContentBootstrapper().withContentListers(retroLister);
     @SuppressWarnings("unused")
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();

@@ -7,26 +7,26 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.atlasapi.search.DebuggableContentSearcher;
-import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
+import org.atlasapi.search.loader.ContentBootstrapper;
 
 public class ReloadingContentSearcher extends AbstractService implements DebuggableContentSearcher {
 
     private static final long DELAY = 180;
     private volatile LuceneContentSearcher primary;
     private final ScheduledExecutorService executor;
-    private final MongoDbBackedContentBootstrapper contentBootstrapper;
+    private final ContentBootstrapper contentBootstrapper;
     private final Log log = LogFactory.getLog(ReloadingContentSearcher.class);
 
-    public ReloadingContentSearcher(LuceneContentSearcher delegate, MongoDbBackedContentBootstrapper contentBootstrapper) {
+    public ReloadingContentSearcher(LuceneContentSearcher delegate, ContentBootstrapper contentBootstrapper) {
         this(delegate, contentBootstrapper, Executors.newSingleThreadScheduledExecutor());
     }
 
-    public ReloadingContentSearcher(LuceneContentSearcher delegate, MongoDbBackedContentBootstrapper contentBootstrapper, ScheduledExecutorService executor) {
+    public ReloadingContentSearcher(LuceneContentSearcher delegate, ContentBootstrapper contentBootstrapper, ScheduledExecutorService executor) {
         this.contentBootstrapper = contentBootstrapper;
         this.primary = delegate;
         this.executor = executor;
