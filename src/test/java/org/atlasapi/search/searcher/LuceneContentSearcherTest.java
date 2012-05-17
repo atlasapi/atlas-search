@@ -42,10 +42,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import java.io.File;
 import java.util.UUID;
+import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentSearcherTest extends TestCase {
 
@@ -121,7 +123,7 @@ public class LuceneContentSearcherTest extends TestCase {
     }
 
     public void testFindingBrandsByTitle() throws Exception {
-        check(searcher.search(title("Aprentice")), theApprentice);
+        check(searcher.search(title("aprentice")), theApprentice);
         check(searcher.search(currentWeighted("apprent")), theApprentice, apparent);
         check(searcher.search(title("den")), dragonsDen, theJackDeeShow);
         check(searcher.search(title("dragon")), dragonsDen);
@@ -153,14 +155,27 @@ public class LuceneContentSearcherTest extends TestCase {
     }
     
     public void testFindingBrandsByTitleAfterUpdate() throws Exception {
-        check(searcher.search(title("Aprentice")), theApprentice);
+        check(searcher.search(title("aprentice")), theApprentice);
         //
         Brand theApprentice2 = new Brand();
         Brand.copyTo(theApprentice, theApprentice2);
-        theApprentice2.setTitle("The Apprentice2");
+        theApprentice2.setTitle("Completely Different2");
         searcher.contentChange(Arrays.asList(theApprentice2));
         //
-        check(searcher.search(title("Aprentice2")), theApprentice);
+        checkNot(searcher.search(title("aprentice")), theApprentice);
+        check(searcher.search(title("Completely Different2")), theApprentice);
+    }
+    
+    public void testFindingBrandsBySpecialization() throws Exception {
+        check(searcher.search(title("aprentice")), theApprentice);
+        //
+        Brand theApprentice2 = new Brand();
+        Brand.copyTo(theApprentice, theApprentice2);
+        theApprentice2.setSpecialization(Specialization.RADIO);
+        searcher.contentChange(Arrays.asList(theApprentice2));
+        //
+        checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);
+        check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);
     }
 
     public void testLimitingToPublishers() throws Exception {
@@ -199,6 +214,10 @@ public class LuceneContentSearcherTest extends TestCase {
     protected static SearchQuery title(String term) {
         return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
     }
+    
+    protected static SearchQuery specializedTitle(String term, Specialization specialization) {
+        return new SearchQuery(term, Selection.ALL, Sets.newHashSet(specialization), ALL_PUBLISHERS, 1.0f, 0.0f, 0.0f);
+    }
 
     protected static SearchQuery currentWeighted(String term) {
         return new SearchQuery(term, Selection.ALL, ALL_PUBLISHERS, 1.0f, 0.2f, 0.2f);
@@ -206,6 +225,10 @@ public class LuceneContentSearcherTest extends TestCase {
 
     protected static void check(SearchResults result, Identified... content) {
         assertThat(result.toUris(), is(toUris(Arrays.asList(content))));
+    }
+    
+    protected static void checkNot(SearchResults result, Identified... content) {
+        assertFalse(result.toUris().equals(toUris(Arrays.asList(content))));
     }
 
     protected static Brand brand(String uri, String title) {

@@ -76,7 +76,9 @@ import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
 import com.metabroadcast.common.time.Timestamper;
 import java.io.File;
+import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.store.FSDirectory;
+import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
 
@@ -84,6 +86,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
     static final String FIELD_CONTENT_TITLE = "title";
+    static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
     static final String FIELD_CONTENT_PUBLISHER = "publisher";
     private static final String FIELD_CONTENT_URI = "contentUri";
     private static final String FIELD_AVAILABLE = "available";
@@ -104,7 +107,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             throw new RuntimeException(e);
         }
     }
-    
+
     @Override
     public SearchResults search(SearchQuery q) {
         return new SearchResults(search(searcherFor(contentDir), getQuery(q), getFilter(q), q.getSelection()));
@@ -166,7 +169,12 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES, Field.Index.NOT_ANALYZED));
-        doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
+        if (content.getSpecialization() != null) {
+            doc.add(new Field(FIELD_CONTENT_SPECIALIZATION, content.getSpecialization().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
+        }
+        if (content.getPublisher() != null) {
+            doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
+        }
         if (!addBroadcastAndAvailabilityFields(content, doc)) {
             return null;
         }
@@ -271,31 +279,34 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         return false;
     }
 
-    private TermsFilter getFilter(SearchQuery q) {
-        TermsFilter filter = new TermsFilter();
-        addPublisherfilter(filter, q.getIncludedPublishers());
-        return filter;
+    private Filter getFilter(SearchQuery q) {
+        return getPublisherFilter(q.getIncludedPublishers());
     }
 
     private Query getQuery(SearchQuery q) {
         BooleanQuery query = new BooleanQuery(true);
-
+        // Title:
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
-
         titleQuery.setBoost(q.getTitleWeighting());
-
+        // Filtered by specialization:
+        if (!q.getIncludedSpecializations().isEmpty()) {
+            Filter filter = getSpecializationFilter(q.getIncludedSpecializations());
+            titleQuery = new FilteredQuery(titleQuery, filter);
+        }
         query.add(titleQuery, Occur.MUST);
-
+        // Availability:
         if (q.getCatchupWeighting() != 0.0f) {
             Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
             query.add(availabilityQuery, Occur.SHOULD);
         }
-
+        // Result:
         if (q.getBroadcastWeighting() != 0.0f) {
             return new DistanceToBroadcastScore(query).withBroadcastWeight(q.getBroadcastWeighting());
+        } else {
+            return query;
         }
-        return query;
     }
+    
     private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
 
     private static int hourOf(long millis) {
@@ -306,44 +317,23 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         return hourOf(ts.millis());
     }
 
-    private static class DistanceToBroadcastScore extends CustomScoreQuery {
-
-        private static final long serialVersionUID = 1L;
-        private final int currentHour;
-        private float broadcastWeighting = 1;
-
-        public DistanceToBroadcastScore(Query subQuery) {
-            super(subQuery, new ValueSourceQuery(new IntFieldSource(FIELD_BROADCAST_HOUR_TS)));
-            setStrict(true);
-            this.currentHour = hourOf(clock.timestamp());
-        }
-
-        public Query withBroadcastWeight(float broadcastWeighting) {
-            this.broadcastWeighting = broadcastWeighting;
-            return this;
-        }
-
-        @Override
-        public float customScore(int doc, float subQueryScore, float broadcastHour) {
-            float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
-
-            // This is inverted; a higher number means we scale less. We up-weigh
-            // items broadcast or to be broadcast in the last week.
-            int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
-
-            float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
-            return subQueryScore + (broadcastWeighting * broadcastScore * subQueryScore);
-        }
-    }
-
-    private void addPublisherfilter(TermsFilter filter, Set<Publisher> includedPublishers) {
+    private Filter getPublisherFilter(Set<Publisher> includedPublishers) {
+        TermsFilter filter = new TermsFilter();
         for (Publisher publisher : includedPublishers) {
             filter.addTerm(new Term(FIELD_CONTENT_PUBLISHER, publisher.toString()));
         }
+        return filter;
+    }
+    
+    private Filter getSpecializationFilter(Set<Specialization> includedSpecializations) {
+        TermsFilter filter = new TermsFilter();
+        for (Specialization specialization : includedSpecializations) {
+            filter.addTerm(new Term(FIELD_CONTENT_SPECIALIZATION, specialization.toString()));
+        }
+        return filter;
     }
 
     private Query availabilityQuery(float boost) {
-
         TermsFilter filter = new TermsFilter();
         filter.addTerm(new Term(FIELD_AVAILABLE, TRUE));
 
@@ -446,8 +436,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
 
         return collector.topDocs(startIndex, endIndex);
     }
-
-    
     // Stop index from growing enormous
     private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.MUSIC_BRAINZ);
     //
@@ -468,5 +456,35 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
 
     private final static boolean hasContainer(Item input) {
         return input.getContainer() != null;
+    }
+
+    private static class DistanceToBroadcastScore extends CustomScoreQuery {
+
+        private static final long serialVersionUID = 1L;
+        private final int currentHour;
+        private float broadcastWeighting = 1;
+
+        public DistanceToBroadcastScore(Query subQuery) {
+            super(subQuery, new ValueSourceQuery(new IntFieldSource(FIELD_BROADCAST_HOUR_TS)));
+            setStrict(true);
+            this.currentHour = hourOf(clock.timestamp());
+        }
+
+        public Query withBroadcastWeight(float broadcastWeighting) {
+            this.broadcastWeighting = broadcastWeighting;
+            return this;
+        }
+
+        @Override
+        public float customScore(int doc, float subQueryScore, float broadcastHour) {
+            float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
+
+            // This is inverted; a higher number means we scale less. We up-weigh
+            // items broadcast or to be broadcast in the last week.
+            int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
+
+            float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
+            return subQueryScore + (broadcastWeighting * broadcastScore * subQueryScore);
+        }
     }
 }
