@@ -23,6 +23,7 @@ import com.metabroadcast.common.media.MimeType;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
+import org.atlasapi.media.entity.Specialization;
 
 public class SearchServlet extends HttpServlet {
 
@@ -62,6 +63,8 @@ public class SearchServlet extends HttpServlet {
         if (catchupWeighting.isNothing()) {
             return;
         }
+        
+        String specializationsCsv = request.getParameter("specializations");
 
         Maybe<Float> priorityChannelWeighting = getFloatParameter("priorityChannelWeighting", request, response, false);
         Maybe<Float> firstBroadcastWeighting = getFloatParameter("firstBroadcastWeighting", request, response, false);
@@ -72,7 +75,7 @@ public class SearchServlet extends HttpServlet {
             return;
         }
 
-        ImmutableList<Publisher> publishers;
+        ImmutableList<Publisher> publishers = ImmutableList.of();
         try {
             publishers = Publisher.fromCsv(publishersCsv);
         } catch (IllegalArgumentException e) {
@@ -84,14 +87,16 @@ public class SearchServlet extends HttpServlet {
             return;
         }
         
+        Iterable<Specialization> specializations = Specialization.fromCsv(specializationsCsv);
+        
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
             ServletOutputStream outputStream = response.getOutputStream();
             outputStream.write(searcher.debug(
-                    new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
+                    new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
                             .requireValue(), priorityChannelWeighting, firstBroadcastWeighting)).getBytes());
         } else {
-            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
+            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
                     catchupWeighting.requireValue(), priorityChannelWeighting, firstBroadcastWeighting)), request, response);
         }
 

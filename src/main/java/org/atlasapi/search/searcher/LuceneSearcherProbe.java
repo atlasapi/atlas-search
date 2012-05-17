@@ -1,7 +1,5 @@
 package org.atlasapi.search.searcher;
 
-import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
-
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.health.ProbeResult;
 import com.metabroadcast.common.units.ByteCount;
@@ -19,9 +17,8 @@ public class LuceneSearcherProbe implements HealthProbe {
 	@Override
 	public ProbeResult probe() {
 		ProbeResult result = new ProbeResult(title());
-		IndexStats stats = index.stats();
-		result.addInfo("brands index size", stats.getBrandsIndexSize().prettyPrint());
-		result.add("total index size", stats.getTotalIndexSize().prettyPrint(), stats.getTotalIndexSize().isLessThan(MAX_INDEX_SIZE));
+		//result.addInfo("brands index size", stats.getBrandsIndexSize().prettyPrint());
+		//result.add("total index size", stats.getTotalIndexSize().prettyPrint(), stats.getTotalIndexSize().isLessThan(MAX_INDEX_SIZE));
 		return result;
 	}
 
