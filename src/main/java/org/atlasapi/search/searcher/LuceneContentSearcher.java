@@ -279,23 +279,25 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         Timestamp now = clock.timestamp();
         int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
 
-        if (content instanceof Item) {
+        if (content instanceof Song) {
+            return true;
+        } else if (content instanceof Item) {
             Item item = (Item) content;
             if (item.isAvailable()) {
                 doc.add(new Field(FIELD_AVAILABLE, String.valueOf(TRUE), Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
             Maybe<Broadcast> closestBroadcast = closestBroadcast(item.flattenBroadcasts(), now);
             int hourOfClosestBroadcast = closestBroadcast.hasValue() ? hourOf(closestBroadcast.requireValue()) : 0;
-            
-            if (content instanceof Film) { 
-            	// Films should pretend to be at most 30 days old (to keep cinema films in the search)
-            	hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
+
+            if (content instanceof Film) {
+                // Films should pretend to be at most 30 days old (to keep cinema films in the search)
+                hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
             }
 
             if (hourOfClosestBroadcast < minHourTimestamp) {
                 return false;
             }
-            
+
             addBroadcastInformation(doc, hourOfClosestBroadcast, closestBroadcast);
             return true;
 
@@ -308,7 +310,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 if (haveAvailable(items)) {
                     doc.add(new Field(FIELD_AVAILABLE, String.valueOf(TRUE), Field.Store.NO, Field.Index.NOT_ANALYZED));
                 }
-                
+
                 Maybe<Broadcast> closestBroadcastForItems = closestBroadcastForItems(items, now);
                 if (closestBroadcastForItems.isNothing() || hourOf(closestBroadcastForItems.requireValue()) < minHourTimestamp) {
                     return false;
@@ -316,8 +318,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 addBroadcastInformation(doc, hourOf(closestBroadcastForItems.requireValue()), closestBroadcastForItems);
                 return true;
             }
-        } else if (content instanceof Song) {
-            return true;
         }
         return false;
     }
