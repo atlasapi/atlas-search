@@ -78,6 +78,7 @@ import com.metabroadcast.common.time.Timestamper;
 import java.io.File;
 import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.store.FSDirectory;
+import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
@@ -220,6 +221,8 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
                 return true;
             }
+        } else if (content instanceof Song) {
+            return true;
         }
         return false;
     }
