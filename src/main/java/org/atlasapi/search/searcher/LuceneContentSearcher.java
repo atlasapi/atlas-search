@@ -186,7 +186,9 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         Timestamp now = clock.timestamp();
         int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
 
-        if (content instanceof Item) {
+        if (content instanceof Song) {
+            return true;
+        } else if (content instanceof Item) {
             Item item = (Item) content;
             if (item.isAvailable()) {
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
@@ -221,8 +223,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
                 return true;
             }
-        } else if (content instanceof Song) {
-            return true;
         }
         return false;
     }
