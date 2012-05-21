@@ -54,7 +54,7 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
         try {
             this.contentBootstrapper.loadAllIntoListener(primary);
         } catch (Exception e) {
-            log.error(e);
+            log.error(e.getMessage(), e);
         }
         this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), DELAY, DELAY, TimeUnit.MINUTES);
     }
