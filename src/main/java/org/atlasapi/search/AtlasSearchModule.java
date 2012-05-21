@@ -68,11 +68,13 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
-			return new CassandraContentStore(Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
+			CassandraContentStore cassandraContentStore = new CassandraContentStore(Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
                     Integer.parseInt(cassandraPort), 
                     Runtime.getRuntime().availableProcessors() * 10, 
                     Integer.parseInt(cassandraConnectionTimeout), 
                     Integer.parseInt(cassandraRequestTimeout));
+            cassandraContentStore.init();
+            return cassandraContentStore;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}

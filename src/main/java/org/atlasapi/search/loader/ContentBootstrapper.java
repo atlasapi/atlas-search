@@ -34,7 +34,6 @@ import org.atlasapi.search.searcher.ContentChangeListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 
 public class ContentBootstrapper {
 
@@ -87,8 +86,13 @@ public class ContentBootstrapper {
 
                     @Override
                     public void personListed(Person person) {
-                        listener.contentChange(ImmutableList.of(person));
-                        peopleProcessed.incrementAndGet();
+                        try {
+                            listener.contentChange(ImmutableList.of(person));
+                            peopleProcessed.incrementAndGet();
+                        } catch (RuntimeException ex) {
+                            log.warn(ex.getMessage(), ex);
+                            throw ex;
+                        }
                     }
                 });
             }
