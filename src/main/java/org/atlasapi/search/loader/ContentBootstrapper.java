@@ -57,18 +57,21 @@ public class ContentBootstrapper {
             log.info("Bootstrapping top level content");
         }
 
-        List<Iterator<Content>> contents = Lists.newLinkedList();
         int contentProcessed = 0;
         for (ContentLister lister : contentListers) {
-            Iterator<Content> content = lister.listContent(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
-            Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
-            while (partitionedContent.hasNext()) {
-                List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
-                listener.contentChange(partition);
-                contentProcessed += partition.size();
-                if (log.isInfoEnabled()) {
-                    log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+            try {
+                Iterator<Content> content = lister.listContent(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
+                Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
+                while (partitionedContent.hasNext()) {
+                    List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
+                    listener.contentChange(partition);
+                    contentProcessed += partition.size();
+                    if (log.isInfoEnabled()) {
+                        log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                    }
                 }
+            } catch (Exception ex) {
+                log.warn(ex.getMessage(), ex);
             }
         }
 
