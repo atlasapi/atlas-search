@@ -238,7 +238,6 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private void closeWriter(IndexWriter writer) {
         try {
             writer.commit();
-            writer.optimize();
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -619,7 +618,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         return collector.topDocs(startIndex, endIndex);
     }
     // Stop index from growing enormous
-    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.MUSIC_BRAINZ);
+    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.MUSIC_BRAINZ, Publisher.EMI_PUB);
     //
     private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
 
