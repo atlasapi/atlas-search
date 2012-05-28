@@ -12,10 +12,12 @@ public class LuceneSearcherProbe implements HealthProbe {
 
 	private static final Duration MAX_INDEX_STALENESS = Duration.standardHours(12);
 	
+    private final String slug;
 	private final ReloadingContentBootstrapper index;
     private final Clock clock;
 
-	public LuceneSearcherProbe(ReloadingContentBootstrapper index) {
+	public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
+        this.slug = slug;
 		this.index = index;
 		this.clock = new SystemClock();
 	}
@@ -35,6 +37,6 @@ public class LuceneSearcherProbe implements HealthProbe {
 
     @Override
     public String slug() {
-        return "lucene";
+        return slug;
     }
 }
