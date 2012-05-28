@@ -80,6 +80,7 @@ public class ReloadingContentBootstrapperTest {
 
     @Test
     public void shouldLoadAndReloadSearch() {
+        bootstrapper.loadAllIntoListener(searcher);
         reloader.kickOffBootstrap();
         testSearcher();
         retroLister.loadContainerLister(containers);

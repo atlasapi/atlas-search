@@ -25,11 +25,7 @@ public class ReloadingContentBootstrapper extends AbstractService {
     private volatile DateTime lastIndexBuild;
     private final Log log = LogFactory.getLog(ReloadingContentBootstrapper.class);
 
-    public ReloadingContentBootstrapper(LuceneContentIndex listener, ContentBootstrapper contentBootstrapper, long delay, TimeUnit unit) {
-        this(listener, contentBootstrapper, Executors.newSingleThreadScheduledExecutor(), delay, unit);
-    }
-
-    protected ReloadingContentBootstrapper(LuceneContentIndex listener, ContentBootstrapper contentBootstrapper, ScheduledExecutorService executor, long delay, TimeUnit unit) {
+    public ReloadingContentBootstrapper(LuceneContentIndex listener, ContentBootstrapper contentBootstrapper, ScheduledExecutorService executor, long delay, TimeUnit unit) {
         this.contentBootstrapper = contentBootstrapper;
         this.listener = listener;
         this.executor = executor;
@@ -39,13 +35,7 @@ public class ReloadingContentBootstrapper extends AbstractService {
 
     @Override
     protected void doStart() {
-        new Thread() {
-
-            public void run() {
-                kickOffBootstrap();
-            }
-        ;
-        }.start();
+        kickOffBootstrap();
         notifyStarted();
     }
 
@@ -56,13 +46,7 @@ public class ReloadingContentBootstrapper extends AbstractService {
 
     @VisibleForTesting
     protected void kickOffBootstrap() {
-        try {
-            this.contentBootstrapper.loadAllIntoListener(listener);
-            lastIndexBuild = clock.now();
-        } catch (Exception e) {
-            log.error("Exception bootstrapping", e);
-        }
-        this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), delayInMillis, delayInMillis, TimeUnit.MILLISECONDS);
+        this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), 0, delayInMillis, TimeUnit.MILLISECONDS);
     }
     
     public DateTime lastIndexBuild() {
