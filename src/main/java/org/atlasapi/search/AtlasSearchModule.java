@@ -19,6 +19,8 @@ import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.mongodb.Mongo;
 import java.io.File;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
@@ -38,9 +40,10 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {        
         LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()));
-	    
-        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), 180, TimeUnit.MINUTES);
-	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), 7, TimeUnit.DAYS);
+        
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, 180, TimeUnit.MINUTES);
+	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), scheduler, 7, TimeUnit.DAYS);
         
 		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(
                 new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper), 
