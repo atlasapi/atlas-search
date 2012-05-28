@@ -23,41 +23,40 @@ import org.junit.runner.RunWith;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
-import java.util.UUID;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.junit.Before;
 
 @RunWith(JMock.class)
 public class ReloadingContentSearcherTest {
 
-    private final Brand dragonsDen = LuceneContentSearcherTest.brand("/den", "Dragon's den");
+    private final Brand dragonsDen = LuceneContentIndexTest.brand("/den", "Dragon's den");
     private final Item dragonsDenItem = complexItem().withBrand(dragonsDen).withVersions(broadcast().buildInVersion()).build();
-    private final Brand theCityGardener = LuceneContentSearcherTest.brand("/garden", "The City Gardener");
+    private final Brand theCityGardener = LuceneContentIndexTest.brand("/garden", "The City Gardener");
     private final Item theCityGardenerItem = complexItem().withBrand(theCityGardener).withVersions(broadcast().buildInVersion()).build();
-    private final Brand eastenders = LuceneContentSearcherTest.brand("/eastenders", "Eastenders");
+    private final Brand eastenders = LuceneContentIndexTest.brand("/eastenders", "Eastenders");
     private final Item eastendersItem = complexItem().withBrand(eastenders).withVersions(broadcast().buildInVersion()).build();
-    private final Brand politicsEast = LuceneContentSearcherTest.brand("/politics", "The Politics Show East");
+    private final Brand politicsEast = LuceneContentIndexTest.brand("/politics", "The Politics Show East");
     private final Item politicsEastItem = complexItem().withBrand(politicsEast).withVersions(broadcast().buildInVersion()).build();
-    private final Brand meetTheMagoons = LuceneContentSearcherTest.brand("/magoons", "Meet the Magoons");
+    private final Brand meetTheMagoons = LuceneContentIndexTest.brand("/magoons", "Meet the Magoons");
     private final Item meetTheMagoonsItem = complexItem().withBrand(meetTheMagoons).withVersions(broadcast().buildInVersion()).build();
-    private final Brand theJackDeeShow = LuceneContentSearcherTest.brand("/dee", "The Jack Dee Show");
+    private final Brand theJackDeeShow = LuceneContentIndexTest.brand("/dee", "The Jack Dee Show");
     private final Item theJackDeeShowItem = complexItem().withBrand(theJackDeeShow).withVersions(broadcast().buildInVersion()).build();
-    private final Brand peepShow = LuceneContentSearcherTest.brand("/peep-show", "Peep Show");
+    private final Brand peepShow = LuceneContentIndexTest.brand("/peep-show", "Peep Show");
     private final Item peepShowItem = complexItem().withBrand(peepShow).withVersions(broadcast().buildInVersion()).build();
-    private final Brand euromillionsDraw = LuceneContentSearcherTest.brand("/draw", "EuroMillions Draw");
+    private final Brand euromillionsDraw = LuceneContentIndexTest.brand("/draw", "EuroMillions Draw");
     private final Item euromillionsDrawItem = complexItem().withBrand(euromillionsDraw).withVersions(broadcast().buildInVersion()).build();
-    private final Brand haveIGotNewsForYou = LuceneContentSearcherTest.brand("/news", "Have I Got News For You");
+    private final Brand haveIGotNewsForYou = LuceneContentIndexTest.brand("/news", "Have I Got News For You");
     private final Item haveIGotNewsForYouItem = complexItem().withBrand(haveIGotNewsForYou).withVersions(broadcast().buildInVersion()).build();
-    private final Brand brasseye = LuceneContentSearcherTest.brand("/eye", "Brass Eye");
+    private final Brand brasseye = LuceneContentIndexTest.brand("/eye", "Brass Eye");
     private final Item brasseyeItem = complexItem().withBrand(brasseye).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
-    private final Brand science = LuceneContentSearcherTest.brand("/science", "The Story of Science: Power, Proof and Passion");
+    private final Brand science = LuceneContentIndexTest.brand("/science", "The Story of Science: Power, Proof and Passion");
     private final Item scienceItem = complexItem().withBrand(science).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
-    private final Brand theApprentice = LuceneContentSearcherTest.brand("/apprentice", "The Apprentice");
+    private final Brand theApprentice = LuceneContentIndexTest.brand("/apprentice", "The Apprentice");
     private final Item theApprenticeItem = complexItem().withBrand(theApprentice).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
-    private final Item englishForCats = LuceneContentSearcherTest.item("/items/cats", "English for cats");
-    private final Item u2 = LuceneContentSearcherTest.item("/items/u2", "U2 Ultraviolet");
-    private final Item jamieOliversCookingProgramme = LuceneContentSearcherTest.item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
-    private final Item gordonRamsaysCookingProgramme = LuceneContentSearcherTest.item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
+    private final Item englishForCats = LuceneContentIndexTest.item("/items/cats", "English for cats");
+    private final Item u2 = LuceneContentIndexTest.item("/items/u2", "U2 Ultraviolet");
+    private final Item jamieOliversCookingProgramme = LuceneContentIndexTest.item("/items/oliver/1", "Jamie Oliver's cooking programme", "lots of words that are the same alpha beta");
+    private final Item gordonRamsaysCookingProgramme = LuceneContentIndexTest.item("/items/ramsay/2", "Gordon Ramsay's cooking show", "lots of words that are the same alpha beta");
     private final List<Container> containers = Arrays.<Container>asList(dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou, euromillionsDraw,
             brasseye, science, politicsEast, theApprentice);
     private final List<Item> items = ImmutableList.of(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2, dragonsDenItem, theCityGardenerItem, eastendersItem,
@@ -68,14 +67,15 @@ public class ReloadingContentSearcherTest {
     private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
     private final KnownTypeContentResolver contentResolver = new DummyKnownTypeContentResolver().respondTo(containers).respondTo(items);
-    private volatile ReloadingContentSearcher reloader;
+    private volatile LuceneContentIndex searcher;
+    private volatile ReloadingContentBootstrapper reloader;
 
     @Before
     public void setUp() throws Exception {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
-        LuceneContentSearcher searcher = new LuceneContentSearcher(luceneDir, contentResolver);
-        reloader = new ReloadingContentSearcher(searcher, bootstrapper, scheduler);
+        searcher = new LuceneContentIndex(luceneDir, contentResolver);
+        reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, 180, TimeUnit.MINUTES);
     }
 
     @Test
@@ -94,6 +94,6 @@ public class ReloadingContentSearcherTest {
     }
 
     private void testSearcher() {
-        LuceneContentSearcherTest.check(reloader.search(LuceneContentSearcherTest.title("Aprentice")), theApprentice);
+        LuceneContentIndexTest.check(searcher.search(LuceneContentIndexTest.title("Aprentice")), theApprentice);
     }
 }

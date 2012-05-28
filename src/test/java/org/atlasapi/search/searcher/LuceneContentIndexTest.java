@@ -50,7 +50,7 @@ import java.io.File;
 import java.util.UUID;
 import org.atlasapi.media.entity.Specialization;
 
-public class LuceneContentSearcherTest extends TestCase {
+public class LuceneContentIndexTest extends TestCase {
 
     private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
 
@@ -105,7 +105,7 @@ public class LuceneContentSearcherTest extends TestCase {
             brasseyeItem, scienceItem, theApprenticeItem);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
-    private LuceneContentSearcher searcher;
+    private LuceneContentIndex searcher;
     private DummyKnownTypeContentResolver contentResolver;
 
     @Override
@@ -115,7 +115,7 @@ public class LuceneContentSearcherTest extends TestCase {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
         contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
-        searcher = new LuceneContentSearcher(luceneDir, contentResolver);
+        searcher = new LuceneContentIndex(luceneDir, contentResolver);
         searcher.contentChange(allContent);
         searcher.afterContentChange();
     }

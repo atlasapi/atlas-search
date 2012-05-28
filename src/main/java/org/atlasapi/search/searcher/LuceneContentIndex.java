@@ -81,10 +81,10 @@ import org.apache.lucene.store.FSDirectory;
 import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
 
-public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
+public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
     private static final int MAX_RESULTS = 1000;
-    private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
+    private static final Log log = LogFactory.getLog(LuceneContentIndex.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
     static final String FIELD_CONTENT_TITLE = "title";
     static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
@@ -101,7 +101,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private volatile Searcher contentSearcher;
     private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
     
-    public LuceneContentSearcher(File luceneDir, KnownTypeContentResolver contentResolver) {
+    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver) {
         this.contentResolver = contentResolver;
         try {
             this.contentDir = FSDirectory.open(luceneDir);

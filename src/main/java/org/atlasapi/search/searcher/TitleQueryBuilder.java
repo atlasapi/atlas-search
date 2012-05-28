@@ -79,7 +79,7 @@ public class TitleQueryBuilder {
 	}
 
     private PrefixQuery prefixQuery(String token) {
-        PrefixQuery query = new PrefixQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, token));
+        PrefixQuery query = new PrefixQuery(new Term(LuceneContentIndex.FIELD_TITLE_FLATTENED, token));
         query.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_FILTER_REWRITE);
         return query;
     }
@@ -90,7 +90,7 @@ public class TitleQueryBuilder {
 		for(String token : tokens) {
 			BooleanQuery queryForThisTerm = new BooleanQuery();
 			queryForThisTerm.setMinimumNumberShouldMatch(1);
-			Term term = new Term(LuceneContentSearcher.FIELD_CONTENT_TITLE, token);
+			Term term = new Term(LuceneContentIndex.FIELD_CONTENT_TITLE, token);
 			
 			PrefixQuery prefix = new PrefixQuery(term);
 			prefix.setBoost(20);
@@ -117,7 +117,7 @@ public class TitleQueryBuilder {
     private Query exactMatch(String flattenedQuery, Iterable<String> tokens) {
         BooleanQuery exactMatch = new BooleanQuery(true);
 		exactMatch.setMinimumNumberShouldMatch(1);
-		exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedQuery)), Occur.SHOULD);
+		exactMatch.add(new TermQuery(new Term(LuceneContentIndex.FIELD_TITLE_FLATTENED, flattenedQuery)), Occur.SHOULD);
 		
 		Iterable<String> transformed = Iterables.transform(tokens, new Function<String, String>() {
             @Override
@@ -133,14 +133,14 @@ public class TitleQueryBuilder {
 		String flattenedAndExpanded = JOINER.join(transformed);
 		
         if (!flattenedAndExpanded.equals(flattenedQuery)) {
-            exactMatch.add(new TermQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattenedAndExpanded)), Occur.SHOULD);
+            exactMatch.add(new TermQuery(new Term(LuceneContentIndex.FIELD_TITLE_FLATTENED, flattenedAndExpanded)), Occur.SHOULD);
         }
 		exactMatch.setBoost(100);
         return exactMatch;
     }
 
 	private FuzzyQuery fuzzyWithoutSpaces(String flattened) {
-		return new FuzzyQuery(new Term(LuceneContentSearcher.FIELD_TITLE_FLATTENED, flattened), 0.8f, USE_PREFIX_SEARCH_UP_TO);
+		return new FuzzyQuery(new Term(LuceneContentIndex.FIELD_TITLE_FLATTENED, flattened), 0.8f, USE_PREFIX_SEARCH_UP_TO);
 	}
 	
 	private static List<String> tokens(String queryString) {
