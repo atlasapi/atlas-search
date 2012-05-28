@@ -13,6 +13,10 @@ import org.atlasapi.search.model.SearchResults;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
 import org.atlasapi.search.loader.ContentBootstrapper;
+import org.joda.time.DateTime;
+
+import com.metabroadcast.common.time.Clock;
+import com.metabroadcast.common.time.SystemClock;
 
 public class ReloadingContentSearcher extends AbstractService implements DebuggableContentSearcher {
 
@@ -22,14 +26,18 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
     private final ContentBootstrapper contentBootstrapper;
     private final Log log = LogFactory.getLog(ReloadingContentSearcher.class);
 
+    private final Clock clock;
+    private DateTime lastIndexBuild;
+    
     public ReloadingContentSearcher(LuceneContentSearcher delegate, ContentBootstrapper contentBootstrapper) {
         this(delegate, contentBootstrapper, Executors.newSingleThreadScheduledExecutor());
     }
-
+    
     public ReloadingContentSearcher(LuceneContentSearcher delegate, ContentBootstrapper contentBootstrapper, ScheduledExecutorService executor) {
         this.contentBootstrapper = contentBootstrapper;
         this.primary = delegate;
         this.executor = executor;
+        this.clock = new SystemClock();
     }
 
     @Override
@@ -53,8 +61,9 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
     protected void kickOffBootstrap() {
         try {
             this.contentBootstrapper.loadAllIntoListener(primary);
+            lastIndexBuild = clock.now();
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            log.error("Exception bootstrapping", e);
         }
         this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), DELAY, DELAY, TimeUnit.MINUTES);
     }
@@ -71,12 +80,18 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
             try {
                 log.info("Loading content searcher");
                 contentBootstrapper.loadAllIntoListener(primary);
+                lastIndexBuild = clock.now();
                 log.info("Finished loading content searcher");
             } catch (Exception e) {
-                log.error(e);
+                log.error("Exception swapping content searchers", e);
             }
         }
     }
+    
+    public DateTime lastIndexBuild() {
+        return lastIndexBuild;
+    }
+    
 
     @Override
     public String debug(SearchQuery query) {

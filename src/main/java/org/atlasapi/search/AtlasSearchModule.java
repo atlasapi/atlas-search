@@ -40,7 +40,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo());
 	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(new LuceneContentSearcher(new File(luceneDir), contentResolver), bootstrapper());
 
-		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
+		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), lucene));
 		
 		lucene.start();
