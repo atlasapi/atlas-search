@@ -7,14 +7,12 @@ import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.health.ProbeResult;
 import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
-import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneSearcherProbe implements HealthProbe {
 
-	private static final ByteCount MAX_INDEX_SIZE = ByteCount.gibibytes(1);
 	private static final Duration MAX_INDEX_STALENESS = Duration.standardHours(12);
 	
-	private final ReloadingContentSearcher index;
+	private final ReloadingContentBootstrapper index;
     private final Clock clock;
 
 	public LuceneSearcherProbe(ReloadingContentBootstrapper index) {

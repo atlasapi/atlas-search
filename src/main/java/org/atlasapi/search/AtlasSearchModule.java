@@ -42,7 +42,7 @@ public class AtlasSearchModule extends WebAwareModule {
         ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), 180, TimeUnit.MINUTES);
 	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), 7, TimeUnit.DAYS);
         
-		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(mongoBootstrapper), new LuceneSearcherProbe(cassandraBootstrapper))));
+		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(mongoBootstrapper), new LuceneSearcherProbe(cassandraBootstrapper))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		
 		mongoBootstrapper.start();

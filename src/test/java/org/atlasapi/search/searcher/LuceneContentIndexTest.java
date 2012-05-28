@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.io.Files;
 import com.metabroadcast.common.base.Maybe;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
@@ -178,6 +179,8 @@ public class LuceneContentIndexTest extends TestCase {
         contentResolver.respondTo(ImmutableList.of(east, eastItem));
 
         searcher.contentChange(ImmutableList.of(east));
+        searcher.afterContentChange();
+        
         check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f, Maybe.just(100.0f), Maybe.<Float>nothing())), east);
     }
 
@@ -207,6 +210,7 @@ public class LuceneContentIndexTest extends TestCase {
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setTitle("Completely Different2");
         searcher.contentChange(Arrays.asList(theApprentice2));
+        searcher.afterContentChange();
         //
         checkNot(searcher.search(title("aprentice")), theApprentice);
         check(searcher.search(title("Completely Different2")), theApprentice);
@@ -219,6 +223,7 @@ public class LuceneContentIndexTest extends TestCase {
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setSpecialization(Specialization.RADIO);
         searcher.contentChange(Arrays.asList(theApprentice2));
+        searcher.afterContentChange();
         //
         checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);
         check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);

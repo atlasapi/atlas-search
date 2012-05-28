@@ -21,6 +21,8 @@ public class ReloadingContentBootstrapper extends AbstractService {
     private final ScheduledExecutorService executor;
     private final ContentBootstrapper contentBootstrapper;
     private final long delayInMillis;
+    private final Clock clock;
+    private volatile DateTime lastIndexBuild;
     private final Log log = LogFactory.getLog(ReloadingContentBootstrapper.class);
 
     public ReloadingContentBootstrapper(LuceneContentIndex listener, ContentBootstrapper contentBootstrapper, long delay, TimeUnit unit) {
@@ -32,6 +34,7 @@ public class ReloadingContentBootstrapper extends AbstractService {
         this.listener = listener;
         this.executor = executor;
         this.delayInMillis = TimeUnit.MILLISECONDS.convert(delay, unit);
+        this.clock = new SystemClock();
     }
 
     @Override
@@ -55,10 +58,15 @@ public class ReloadingContentBootstrapper extends AbstractService {
     protected void kickOffBootstrap() {
         try {
             this.contentBootstrapper.loadAllIntoListener(listener);
+            lastIndexBuild = clock.now();
         } catch (Exception e) {
             log.error("Exception bootstrapping", e);
         }
         this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), delayInMillis, delayInMillis, TimeUnit.MILLISECONDS);
+    }
+    
+    public DateTime lastIndexBuild() {
+        return lastIndexBuild;
     }
 
     class LoadContentSearcher implements Runnable {
@@ -68,20 +76,11 @@ public class ReloadingContentBootstrapper extends AbstractService {
             try {
                 log.info("Loading content searcher");
                 contentBootstrapper.loadAllIntoListener(listener);
+                lastIndexBuild = clock.now();
                 log.info("Finished loading content searcher");
             } catch (Exception e) {
                 log.error("Exception swapping content searchers", e);
             }
         }
-    }
-    
-    public DateTime lastIndexBuild() {
-        return lastIndexBuild;
-    }
-    
-
-    @Override
-    public String debug(SearchQuery query) {
-        return primary.debug(query);
     }
 }
