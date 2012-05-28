@@ -9,8 +9,10 @@ public class LuceneSearcherProbe implements HealthProbe {
 	private static final ByteCount MAX_INDEX_SIZE = ByteCount.gibibytes(1);
 	
 	private final ReloadingContentBootstrapper index;
+    private final String slug;
 
-	public LuceneSearcherProbe(ReloadingContentBootstrapper index) {
+	public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
+        this.slug = slug;
 		this.index = index;
 	}
 	
@@ -29,6 +31,6 @@ public class LuceneSearcherProbe implements HealthProbe {
 
     @Override
     public String slug() {
-        return "lucene";
+        return slug;
     }
 }
