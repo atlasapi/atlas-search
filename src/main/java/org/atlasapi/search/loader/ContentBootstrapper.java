@@ -52,6 +52,8 @@ public class ContentBootstrapper {
     }
 
     public void loadAllIntoListener(final ContentChangeListener listener) {
+        listener.beforeContentChange();
+
         if (log.isInfoEnabled()) {
             log.info("Bootstrapping top level content");
         }
@@ -102,5 +104,7 @@ public class ContentBootstrapper {
             log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
             log.info("Passed " + (contentProcessed + peopleProcessed.get()) + " to content change listener");
         }
+
+        listener.afterContentChange();
     }
 }

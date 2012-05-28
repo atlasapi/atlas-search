@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.io.Files;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import java.io.File;
@@ -111,15 +112,12 @@ public class LuceneContentSearcherTest extends TestCase {
     protected void setUp() throws Exception {
         super.setUp();
         Iterable<Described> allContent = Iterables.<Described>concat(brands, items, itemsUpdated);
-        File luceneDir = new File(System.getProperty("java.io.tmpdir") + File.separatorChar + UUID.randomUUID());
-        if (luceneDir.mkdir()) {
-            luceneDir.deleteOnExit();
-            contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
-            searcher = new LuceneContentSearcher(luceneDir, contentResolver);
-            searcher.contentChange(allContent);
-        } else {
-            throw new IllegalAccessException();
-        }
+        File luceneDir = Files.createTempDir();
+        luceneDir.deleteOnExit();
+        contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
+        searcher = new LuceneContentSearcher(luceneDir, contentResolver);
+        searcher.contentChange(allContent);
+        searcher.afterContentChange();
     }
 
     public void testFindingBrandsByTitle() throws Exception {
@@ -161,6 +159,7 @@ public class LuceneContentSearcherTest extends TestCase {
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setTitle("Completely Different2");
         searcher.contentChange(Arrays.asList(theApprentice2));
+        searcher.afterContentChange();
         //
         checkNot(searcher.search(title("aprentice")), theApprentice);
         check(searcher.search(title("Completely Different2")), theApprentice);
@@ -173,6 +172,7 @@ public class LuceneContentSearcherTest extends TestCase {
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setSpecialization(Specialization.RADIO);
         searcher.contentChange(Arrays.asList(theApprentice2));
+        searcher.afterContentChange();
         //
         checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);
         check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);
@@ -189,6 +189,8 @@ public class LuceneContentSearcherTest extends TestCase {
         contentResolver.respondTo(ImmutableList.of(east, eastItem));
 
         searcher.contentChange(ImmutableList.of(east));
+        searcher.afterContentChange();
+        
         check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f)), east);
     }
 

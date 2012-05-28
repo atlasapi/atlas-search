@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import java.io.File;
 import java.util.UUID;
 import org.atlasapi.search.loader.ContentBootstrapper;
@@ -71,14 +72,10 @@ public class ReloadingContentSearcherTest {
 
     @Before
     public void setUp() throws Exception {
-        File luceneDir = new File(System.getProperty("java.io.tmpdir") + File.separatorChar + UUID.randomUUID());
-        if (luceneDir.mkdir()) {
-            luceneDir.deleteOnExit();
-            LuceneContentSearcher searcher = new LuceneContentSearcher(luceneDir, contentResolver);
-            reloader = new ReloadingContentSearcher(searcher, bootstrapper, scheduler);
-        } else {
-            throw new IllegalStateException();
-        }
+        File luceneDir = Files.createTempDir();
+        luceneDir.deleteOnExit();
+        LuceneContentSearcher searcher = new LuceneContentSearcher(luceneDir, contentResolver);
+        reloader = new ReloadingContentSearcher(searcher, bootstrapper, scheduler);
     }
 
     @Test

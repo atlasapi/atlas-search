@@ -82,7 +82,7 @@ import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentSearcher implements ContentChangeListener, DebuggableContentSearcher {
-
+    
     private static final int MAX_RESULTS = 1000;
     private static final Log log = LogFactory.getLog(LuceneContentSearcher.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
@@ -98,27 +98,34 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     private static final Timestamper clock = new SystemClock();
     private final Directory contentDir;
     private final KnownTypeContentResolver contentResolver;
+    private volatile Searcher contentSearcher;
     private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
-
+    
     public LuceneContentSearcher(File luceneDir, KnownTypeContentResolver contentResolver) {
         this.contentResolver = contentResolver;
         try {
             this.contentDir = FSDirectory.open(luceneDir);
+            touchIndex();
+            this.contentSearcher = new IndexSearcher(contentDir);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-
+    
     @Override
     public SearchResults search(SearchQuery q) {
-        return new SearchResults(search(searcherFor(contentDir), getQuery(q), getFilter(q), q.getSelection()));
+        return new SearchResults(search(contentSearcher, getQuery(q), getFilter(q), q.getSelection()));
     }
-
+    
     @Override
     public String debug(SearchQuery q) {
-        return Joiner.on("\n").join(debug(searcherFor(contentDir), getQuery(q), getFilter(q), q.getSelection()));
+        return Joiner.on("\n").join(debug(contentSearcher, getQuery(q), getFilter(q), q.getSelection()));
     }
-
+    
+    @Override
+    public void beforeContentChange() {
+    }
+    
     @Override
     public void contentChange(Iterable<? extends Described> contents) {
         IndexWriter writer = null;
@@ -141,7 +148,41 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
         }
     }
-
+    
+    @Override
+    public void afterContentChange() {
+        optimizeIndex();
+        refreshSearcher();
+    }
+    
+    private void touchIndex() throws RuntimeException {
+        IndexWriter writer = null;
+        try {
+            writer = writerFor(contentDir);
+            writer.commit();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (writer != null) {
+                closeWriter(writer);
+            }
+        }
+    }
+    
+    private void optimizeIndex() throws RuntimeException {
+        IndexWriter writer = null;
+        try {
+            writer = writerFor(contentDir);
+            writer.optimize();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (writer != null) {
+                closeWriter(writer);
+            }
+        }
+    }
+    
     private void closeWriter(IndexWriter writer) {
         try {
             writer.commit();
@@ -156,11 +197,11 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
         }
     }
-
+    
     private static IndexWriter writerFor(Directory dir) throws CorruptIndexException, LockObtainFailedException, IOException {
         return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
     }
-
+    
     private Document asDocument(Described content) {
         if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
             return null;
@@ -180,11 +221,11 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         return doc;
     }
-
+    
     private boolean addBroadcastAndAvailabilityFields(Described content, Document doc) {
         Timestamp now = clock.timestamp();
         int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
-
+        
         if (content instanceof Song) {
             return true;
         } else if (content instanceof Item) {
@@ -193,28 +234,28 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
             int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
-
+            
             if (content instanceof Film) {
                 // Films should pretend to be at most 30 days old (to keep cinema films in the search)
                 hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
             }
-
+            
             if (hourOfClosestBroadcast < minHourTimestamp) {
                 return false;
             }
             doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
             return true;
-
+            
         } else if (content instanceof Container) {
             Container container = (Container) content;
             if (!container.getChildRefs().isEmpty()) {
                 List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
-
+                
                 Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
                 if (haveAvailable(items)) {
                     doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
                 }
-
+                
                 int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(items, now);
                 if (hourOfClosestBroadcastForItems < minHourTimestamp) {
                     return false;
@@ -225,37 +266,37 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         return false;
     }
-
+    
     private int hourOfClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
         if (Iterables.isEmpty(items)) {
             return 0;
         }
         return hourOfClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
     }
-
+    
     private int hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
         Iterable<Broadcast> publishedBroadcasts = Iterables.filter(broadcasts, new Predicate<Broadcast>() {
-
+            
             @Override
             public boolean apply(Broadcast input) {
                 return input.isActivelyPublished();
             }
         });
-
+        
         if (Iterables.isEmpty(publishedBroadcasts)) {
             return 0;
         }
-
+        
         Broadcast closest = sinceBroadcast(now).min(publishedBroadcasts);
         if (closest.getTransmissionTime() == null) {
             return 0;
         }
         return hourOf(Timestamp.of(closest.getTransmissionTime()));
     }
-
+    
     private Ordering<Broadcast> sinceBroadcast(final Timestamp now) {
         return new Ordering<Broadcast>() {
-
+            
             @Override
             public int compare(Broadcast left, Broadcast right) {
                 if (left.getTransmissionTime() == null && left.getTransmissionTime() == null) {
@@ -271,7 +312,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
         };
     }
-
+    
     private boolean haveAvailable(Iterable<Item> items) {
         for (Item item : items) {
             if (item.isAvailable()) {
@@ -280,11 +321,11 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         return false;
     }
-
+    
     private Filter getFilter(SearchQuery q) {
         return getPublisherFilter(q.getIncludedPublishers());
     }
-
+    
     private Query getQuery(SearchQuery q) {
         BooleanQuery query = new BooleanQuery(true);
         // Title:
@@ -308,17 +349,16 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             return query;
         }
     }
-    
     private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
-
+    
     private static int hourOf(long millis) {
         return (int) (millis / MILLIS_IN_HOUR);
     }
-
+    
     private static int hourOf(Timestamp ts) {
         return hourOf(ts.millis());
     }
-
+    
     private Filter getPublisherFilter(Set<Publisher> includedPublishers) {
         TermsFilter filter = new TermsFilter();
         for (Publisher publisher : includedPublishers) {
@@ -334,36 +374,47 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
         return filter;
     }
-
+    
     private Query availabilityQuery(float boost) {
         TermsFilter filter = new TermsFilter();
         filter.addTerm(new Term(FIELD_AVAILABLE, TRUE));
-
+        
         ConstantScoreQuery query = new ConstantScoreQuery(filter);
         query.setBoost(boost);
         return query;
     }
-
-    private static Searcher searcherFor(Directory dir) {
+    
+    private void refreshSearcher() {
+        Exception error = null;
         try {
-            return new IndexSearcher(dir);
+            this.contentSearcher.close();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            error = e;
+        } finally {
+            if (error == null) {
+                try {
+                    this.contentSearcher = new IndexSearcher(contentDir);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            } else {
+                throw new RuntimeException(error);
+            }
         }
     }
-
+    
     private static final class Result implements Comparable<Result> {
-
+        
         private String uri;
         private int titleLength;
         private float score;
-
+        
         private Result(ScoreDoc scoreDoc, Document doc) {
             uri = doc.getField(FIELD_CONTENT_URI).stringValue();
             titleLength = doc.getField(FIELD_TITLE_FLATTENED).stringValue().length();
             score = scoreDoc.score;
         }
-
+        
         @Override
         public int compareTo(Result other) {
             int cmp = Floats.compare(other.score, score);
@@ -374,13 +425,13 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
         }
     }
     private static final Function<Result, String> TO_URI = new Function<Result, String>() {
-
+        
         @Override
         public String apply(Result input) {
             return input.uri;
         }
     };
-
+    
     private List<String> search(final Searcher searcher, Query query, Filter filter, Selection selection) {
         try {
             /*
@@ -395,22 +446,16 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
             Collections.sort(results);
             return Lists.transform(results, TO_URI);
-
+            
         } catch (Exception e) {
             throw new RuntimeException(e);
-        } finally {
-            try {
-                searcher.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
         }
     }
-
+    
     private List<String> debug(final Searcher searcher, Query query, Filter filter, Selection selection) {
         try {
             TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
-
+            
             List<String> results = Lists.newArrayList();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                 Document doc = searcher.doc(scoreDoc.doc);
@@ -427,22 +472,22 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             }
         }
     }
-
+    
     private TopDocs getTopDocs(final Searcher searcher, Query query, Filter filter, Selection selection) throws IOException {
         int startIndex = selection.getOffset();
         int endIndex = selection.limitOrDefaultValue(MAX_RESULTS);
-
+        
         TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
-
+        
         searcher.search(query.weight(searcher), filter, collector);
-
+        
         return collector.topDocs(startIndex, endIndex);
     }
     // Stop index from growing enormous
     private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.MUSIC_BRAINZ, Publisher.EMI_PUB);
     //
     private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
-
+        
         @Override
         public boolean apply(Described input) {
             if (input instanceof Item && (!VALID_PUBLISHERS.contains(input.getPublisher()) || hasContainer((Item) input))) {
@@ -451,32 +496,32 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             if (input instanceof ContentGroup && !(input instanceof Person)) {
                 return false;
             }
-
+            
             return true;
         }
     };
-
+    
     private final static boolean hasContainer(Item input) {
         return input.getContainer() != null;
     }
-
+    
     private static class DistanceToBroadcastScore extends CustomScoreQuery {
-
+        
         private static final long serialVersionUID = 1L;
         private final int currentHour;
         private float broadcastWeighting = 1;
-
+        
         public DistanceToBroadcastScore(Query subQuery) {
             super(subQuery, new ValueSourceQuery(new IntFieldSource(FIELD_BROADCAST_HOUR_TS)));
             setStrict(true);
             this.currentHour = hourOf(clock.timestamp());
         }
-
+        
         public Query withBroadcastWeight(float broadcastWeighting) {
             this.broadcastWeighting = broadcastWeighting;
             return this;
         }
-
+        
         @Override
         public float customScore(int doc, float subQueryScore, float broadcastHour) {
             float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
@@ -484,7 +529,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
             // This is inverted; a higher number means we scale less. We up-weigh
             // items broadcast or to be broadcast in the last week.
             int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
-
+            
             float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
             return subQueryScore + (broadcastWeighting * broadcastScore * subQueryScore);
         }
