@@ -6,7 +6,7 @@ import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
-import org.atlasapi.search.searcher.ReloadingContentSearcher;
+import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
 import org.atlasapi.search.www.HealthController;
 import org.atlasapi.search.www.WebAwareModule;
@@ -19,9 +19,10 @@ import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.mongodb.Mongo;
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
-import org.atlasapi.search.searcher.LuceneContentSearcher;
+import org.atlasapi.search.searcher.LuceneContentIndex;
 
 public class AtlasSearchModule extends WebAwareModule {
 
@@ -35,24 +36,33 @@ public class AtlasSearchModule extends WebAwareModule {
 	private final String enablePeople = Configurer.get("people.enabled").get();
 
 	@Override
-	public void configure() {
+	public void configure() {        
+        LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()));
 	    
-	    MongoContentResolver contentResolver = new MongoContentResolver(mongo());
-	    ReloadingContentSearcher lucene = new ReloadingContentSearcher(new LuceneContentSearcher(new File(luceneDir), contentResolver), bootstrapper());
-
-		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(lucene))));
-		bind("/titles", new SearchServlet(new JsonSearchResultsView(), lucene));
+        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), 180, TimeUnit.MINUTES);
+	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), 7, TimeUnit.DAYS);
+        
+		bind("/health", new HealthController(ImmutableList.<HealthProbe>of(new LuceneSearcherProbe(mongoBootstrapper), new LuceneSearcherProbe(cassandraBootstrapper))));
+		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		
-		lucene.start();
+		mongoBootstrapper.start();
+        cassandraBootstrapper.start();
 	}
 	
     @Bean
-    ContentBootstrapper bootstrapper() {
+    ContentBootstrapper mongoBootstrapper() {
         ContentBootstrapper bootstrapper = new ContentBootstrapper();
-        bootstrapper.withContentListers(new MongoContentLister(mongo()), cassandra());
+        bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo()));
         }
+        return bootstrapper;
+    }
+    
+    @Bean
+    ContentBootstrapper cassandraBootstrapper() {
+        ContentBootstrapper bootstrapper = new ContentBootstrapper();
+        bootstrapper.withContentListers(cassandra());
         return bootstrapper;
     }
 

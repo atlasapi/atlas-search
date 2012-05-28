@@ -17,7 +17,7 @@ public class LuceneSearcherProbe implements HealthProbe {
 	private final ReloadingContentSearcher index;
     private final Clock clock;
 
-	public LuceneSearcherProbe(ReloadingContentSearcher index) {
+	public LuceneSearcherProbe(ReloadingContentBootstrapper index) {
 		this.index = index;
 		this.clock = new SystemClock();
 	}
