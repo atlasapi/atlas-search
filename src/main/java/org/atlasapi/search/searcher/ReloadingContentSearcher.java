@@ -13,9 +13,12 @@ import org.atlasapi.search.loader.MongoDbBackedContentBootstrapper;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.atlasapi.search.searcher.LuceneContentSearcher.IndexStats;
+import org.joda.time.DateTime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
+import com.metabroadcast.common.time.Clock;
+import com.metabroadcast.common.time.SystemClock;
 
 public class ReloadingContentSearcher extends AbstractService implements DebuggableContentSearcher {
 
@@ -26,6 +29,8 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
     private final MongoDbBackedContentBootstrapper contentBootstrapper;
     private final Log log = LogFactory.getLog(ReloadingContentSearcher.class);
     private final KnownTypeContentResolver contentResolver;
+    private final Clock clock;
+    private DateTime lastIndexBuild;
     
     public ReloadingContentSearcher(MongoDbBackedContentBootstrapper contentBootstrapper, KnownTypeContentResolver contentResolver) {
         this(contentBootstrapper, contentResolver, Executors.newSingleThreadScheduledExecutor());
@@ -36,6 +41,7 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
         this.contentResolver = contentResolver;
         this.primary = new AtomicReference<LuceneContentSearcher>(new LuceneContentSearcher(contentResolver));
         this.executor = executor;
+        this.clock = new SystemClock();
     }
     
     @Override
@@ -57,8 +63,9 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
     protected void kickOffBootstrap() {
         try {
             this.contentBootstrapper.loadAllIntoListener(primary.get());
+            lastIndexBuild = clock.now();
         } catch (Exception e) {
-            log.error(e);
+            log.error("Exception bootstrapping", e);
         }
         this.executor.scheduleWithFixedDelay(new LoadAndSwapContentSearcher(), DELAY, DELAY, TimeUnit.MINUTES);
     }
@@ -76,11 +83,16 @@ public class ReloadingContentSearcher extends AbstractService implements Debugga
                 LuceneContentSearcher newSearcher = new LuceneContentSearcher(contentResolver);
                 contentBootstrapper.loadAllIntoListener(newSearcher);
                 primary.set(newSearcher);
+                lastIndexBuild = clock.now();
                 log.info("Finished swapping content searchers");
             } catch (Exception e) {
-                log.error(e);
+                log.error("Exception swapping content searchers", e);
             }
         }
+    }
+    
+    public DateTime lastIndexBuild() {
+        return lastIndexBuild;
     }
     
     public IndexStats stats() {
