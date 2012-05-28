@@ -27,7 +27,7 @@ import org.atlasapi.search.loader.ContentBootstrapper;
 import org.junit.Before;
 
 @RunWith(JMock.class)
-public class ReloadingContentSearcherTest {
+public class ReloadingContentBootstrapperTest {
 
     private final Brand dragonsDen = LuceneContentIndexTest.brand("/den", "Dragon's den");
     private final Item dragonsDenItem = complexItem().withBrand(dragonsDen).withVersions(broadcast().buildInVersion()).build();
