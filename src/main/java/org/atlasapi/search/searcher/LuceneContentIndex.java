@@ -64,7 +64,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -483,27 +482,18 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         
         return collector.topDocs(startIndex, endIndex);
     }
-    // Stop index from growing enormous
-    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.MUSIC_BRAINZ, Publisher.EMI_PUB);
-    //
+
     private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
-        
+
         @Override
         public boolean apply(Described input) {
-            if (input instanceof Item && (!VALID_PUBLISHERS.contains(input.getPublisher()) || hasContainer((Item) input))) {
-                return false;
-            }
             if (input instanceof ContentGroup && !(input instanceof Person)) {
                 return false;
+            } else {
+                return true;
             }
-            
-            return true;
         }
     };
-    
-    private final static boolean hasContainer(Item input) {
-        return input.getContainer() != null;
-    }
     
     private static class DistanceToBroadcastScore extends CustomScoreQuery {
         
