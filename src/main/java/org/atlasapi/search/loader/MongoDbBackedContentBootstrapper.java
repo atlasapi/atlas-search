@@ -19,6 +19,7 @@ import static org.atlasapi.persistence.content.listing.ContentListingCriteria.de
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
@@ -33,8 +34,10 @@ import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 
 public class MongoDbBackedContentBootstrapper {
 	
@@ -58,8 +61,10 @@ public class MongoDbBackedContentBootstrapper {
         }
 	    
 		int contentProcessed = 0;
-        
-        Iterator<Content> content = contentLister.listContent(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
+		List<ContentCategory> contentCategories = Lists.newArrayList(ContentCategory.TOP_LEVEL_CONTENT);
+		contentCategories.remove(ContentCategory.CONTENT_GROUP);
+		
+        Iterator<Content> content = contentLister.listContent(defaultCriteria().forContent(contentCategories).build());
         Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
         
         while (partitionedContent.hasNext()) {
