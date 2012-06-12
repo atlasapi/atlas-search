@@ -113,12 +113,12 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public SearchResults search(SearchQuery q) {
-        return new SearchResults(search(contentSearcher, getQuery(q), getFilter(q), q.getSelection()));
+        return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
     }
     
     @Override
     public String debug(SearchQuery q) {
-        return Joiner.on("\n").join(debug(contentSearcher, getQuery(q), getFilter(q), q.getSelection()));
+        return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
     }
     
     @Override
@@ -387,16 +387,18 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         Exception error = null;
         try {
             this.contentSearcher.close();
-        } catch (Exception e) {
-            error = e;
+        } catch (Exception ex) {
+            error = ex;
         } finally {
-            if (error == null) {
-                try {
-                    this.contentSearcher = new IndexSearcher(contentDir);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-            } else {
+            // Refresh the searcher in any case:
+            try {
+                this.contentSearcher = new IndexSearcher(contentDir);
+            } catch (IOException ex) {
+                // An error in refreshing the searcher is more important than an error in closing it:
+                error =  ex;
+            }
+            // If there was an error, propagate it:
+            if (error != null) {
                 throw new RuntimeException(error);
             }
         }
@@ -431,54 +433,47 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         }
     };
     
-    private List<String> search(final Searcher searcher, Query query, Filter filter, Selection selection) {
+    private List<String> search(Query query, Filter filter, Selection selection) {
         try {
             /*
              * We re-sort the results so that when two items have the same score
              * the item with the shortest title wins.
              */
-            TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
+            TopDocs topDocs = getTopDocs(query, filter, selection);
             List<Result> results = Lists.newArrayList();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document doc = searcher.doc(scoreDoc.doc);
+                Document doc = contentSearcher.doc(scoreDoc.doc);
                 results.add(new Result(scoreDoc, doc));
             }
             Collections.sort(results);
             return Lists.transform(results, TO_URI);
-            
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
     
-    private List<String> debug(final Searcher searcher, Query query, Filter filter, Selection selection) {
+    private List<String> debug(Query query, Filter filter, Selection selection) {
         try {
-            TopDocs topDocs = getTopDocs(searcher, query, filter, selection);
+            TopDocs topDocs = getTopDocs(query, filter, selection);
             
             List<String> results = Lists.newArrayList();
             for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document doc = searcher.doc(scoreDoc.doc);
-                results.add(doc.getField(FIELD_CONTENT_URI).stringValue() + " : " + scoreDoc.score + "\n" + searcher.explain(query.weight(searcher), scoreDoc.doc));
+                Document doc = contentSearcher.doc(scoreDoc.doc);
+                results.add(doc.getField(FIELD_CONTENT_URI).stringValue() + " : " + scoreDoc.score + "\n" + contentSearcher.explain(query.weight(contentSearcher), scoreDoc.doc));
             }
             return results;
         } catch (Exception e) {
             throw new RuntimeException(e);
-        } finally {
-            try {
-                searcher.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
         }
     }
     
-    private TopDocs getTopDocs(final Searcher searcher, Query query, Filter filter, Selection selection) throws IOException {
+    private TopDocs getTopDocs(Query query, Filter filter, Selection selection) throws IOException {
         int startIndex = selection.getOffset();
         int endIndex = selection.limitOrDefaultValue(MAX_RESULTS);
         
         TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_RESULTS, true);
         
-        searcher.search(query.weight(searcher), filter, collector);
+        contentSearcher.search(query.weight(contentSearcher), filter, collector);
         
         return collector.topDocs(startIndex, endIndex);
     }
