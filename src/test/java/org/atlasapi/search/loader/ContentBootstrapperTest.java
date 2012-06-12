@@ -18,7 +18,7 @@ import org.junit.runner.RunWith;
 import com.google.common.collect.ImmutableList;
 
 @RunWith(JMock.class)
-public class MongoDbBackedContentListenerTest  {
+public class ContentBootstrapperTest  {
    
 	private final Mockery context = new Mockery();
 
@@ -27,9 +27,19 @@ public class MongoDbBackedContentListenerTest  {
     private final Item item3 = new Item("3", "3", Publisher.ARCHIVE_ORG);
 	
     private ContentChangeListener listener = context.mock(ContentChangeListener.class);
-    private final ContentLister lister = new ContentLister() {
+    
+    private final ContentLister lister1 = new ContentLister() {
 
-        List<Content> contents = ImmutableList.<Content>of(item1, item2, item3);
+        List<Content> contents = ImmutableList.<Content>of(item1, item2);
+
+        @Override
+        public Iterator<Content> listContent(ContentListingCriteria criteria) {
+            return contents.iterator();
+        }
+    };
+    private final ContentLister lister2 = new ContentLister() {
+
+        List<Content> contents = ImmutableList.<Content>of(item3);
 
         @Override
         public Iterator<Content> listContent(ContentListingCriteria criteria) {
@@ -37,13 +47,16 @@ public class MongoDbBackedContentListenerTest  {
         }
     };
    
-    private MongoDbBackedContentBootstrapper bootstrapper = new MongoDbBackedContentBootstrapper(lister);
+    private ContentBootstrapper bootstrapper = new ContentBootstrapper().withContentListers(lister1, lister2);
     
     @Test
     public void testShouldAllContents() throws Exception {
         
         context.checking(new Expectations() {{
-            one(listener).contentChange(ImmutableList.of(item1, item2, item3));
+            one(listener).beforeContentChange();
+            one(listener).contentChange(ImmutableList.of(item1, item2));
+            one(listener).contentChange(ImmutableList.of(item3));
+            one(listener).afterContentChange();
         }});
         
         bootstrapper.loadAllIntoListener(listener);
