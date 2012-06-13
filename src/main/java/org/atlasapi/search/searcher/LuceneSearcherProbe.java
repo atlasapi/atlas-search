@@ -18,22 +18,24 @@ public class LuceneSearcherProbe implements HealthProbe {
 
 	public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
         this.slug = slug;
-		this.index = index;
-		this.clock = new SystemClock();
-	}
-	
-	@Override
-	public ProbeResult probe() {
-		ProbeResult result = new ProbeResult(title());
-		DateTime lastIndexBuild = index.lastIndexBuild();
-		result.add("last index rebuild finish time", lastIndexBuild.toString("dd/MM/yy HH:mm"), lastIndexBuild != null && clock.now().minus(MAX_INDEX_STALENESS).isBefore(lastIndexBuild));
-		return result;
-	}
+        this.index = index;
+        this.clock = new SystemClock();
+    }
 
-	@Override
-	public String title() {
-		return "Lucene index";
-	}
+    @Override
+    public ProbeResult probe() {
+        ProbeResult result = new ProbeResult(title());
+        DateTime lastIndexBuild = index.lastIndexBuild();
+        result.add("Last index rebuild finish time",
+                lastIndexBuild != null ? lastIndexBuild.toString("dd/MM/yy HH:mm") : "nil",
+                lastIndexBuild != null && clock.now().minus(MAX_INDEX_STALENESS).isBefore(lastIndexBuild));
+        return result;
+    }
+
+    @Override
+    public String title() {
+        return "Lucene index: " + slug;
+    }
 
     @Override
     public String slug() {

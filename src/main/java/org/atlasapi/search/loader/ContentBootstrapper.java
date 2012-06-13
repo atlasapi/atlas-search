@@ -53,14 +53,13 @@ public class ContentBootstrapper {
 
     public void loadAllIntoListener(final ContentChangeListener listener) {
         listener.beforeContentChange();
+        try {
+            if (log.isInfoEnabled()) {
+                log.info("Bootstrapping top level content");
+            }
 
-        if (log.isInfoEnabled()) {
-            log.info("Bootstrapping top level content");
-        }
-
-        int contentProcessed = 0;
-        for (ContentLister lister : contentListers) {
-            try {
+            int contentProcessed = 0;
+            for (ContentLister lister : contentListers) {
                 Iterator<Content> content = lister.listContent(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
                 Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
                 while (partitionedContent.hasNext()) {
@@ -71,40 +70,39 @@ public class ContentBootstrapper {
                         log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
                     }
                 }
-            } catch (Exception ex) {
-                log.warn(ex.getMessage(), ex);
             }
-        }
 
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Finished bootstrapping %s content.", contentProcessed));
-            log.info("Bootstrapping people.");
-        }
+            if (log.isInfoEnabled()) {
+                log.info(String.format("Finished bootstrapping %s content.", contentProcessed));
+                log.info("Bootstrapping people.");
+            }
 
-        final AtomicInteger peopleProcessed = new AtomicInteger(0);
-        if (peopleListers != null) {
-            for (PeopleLister lister : peopleListers) {
-                lister.list(new PeopleListerListener() {
+            final AtomicInteger peopleProcessed = new AtomicInteger(0);
+            if (peopleListers != null) {
+                for (PeopleLister lister : peopleListers) {
+                    lister.list(new PeopleListerListener() {
 
-                    @Override
-                    public void personListed(Person person) {
-                        try {
-                            listener.contentChange(ImmutableList.of(person));
-                            peopleProcessed.incrementAndGet();
-                        } catch (RuntimeException ex) {
-                            log.warn(ex.getMessage(), ex);
-                            throw ex;
+                        @Override
+                        public void personListed(Person person) {
+                            try {
+                                listener.contentChange(ImmutableList.of(person));
+                                peopleProcessed.incrementAndGet();
+                            } catch (RuntimeException ex) {
+                                log.warn(ex.getMessage(), ex);
+                                throw ex;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
-        }
 
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
-            log.info("Passed " + (contentProcessed + peopleProcessed.get()) + " to content change listener");
+            if (log.isInfoEnabled()) {
+                log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException(ex.getMessage(), ex);
+        } finally {
+            listener.afterContentChange();
         }
-
-        listener.afterContentChange();
     }
 }
