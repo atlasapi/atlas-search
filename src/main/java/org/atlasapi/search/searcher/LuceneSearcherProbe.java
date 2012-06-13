@@ -7,11 +7,9 @@ import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.health.ProbeResult;
 import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
-import com.metabroadcast.common.units.ByteCount;
 
 public class LuceneSearcherProbe implements HealthProbe {
 
-    private static final ByteCount MAX_INDEX_SIZE = ByteCount.gibibytes(1);
     private static final Duration MAX_INDEX_STALENESS = Duration.standardHours(12);
     private final Clock clock;
     private final ReloadingContentBootstrapper index;
@@ -27,13 +25,15 @@ public class LuceneSearcherProbe implements HealthProbe {
     public ProbeResult probe() {
         ProbeResult result = new ProbeResult(title());
         DateTime lastIndexBuild = index.lastIndexBuild();
-        result.add("last index rebuild finish time", lastIndexBuild.toString("dd/MM/yy HH:mm"), lastIndexBuild != null && clock.now().minus(MAX_INDEX_STALENESS).isBefore(lastIndexBuild));
+        result.add("Last index rebuild finish time",
+                lastIndexBuild != null ? lastIndexBuild.toString("dd/MM/yy HH:mm") : "nil",
+                lastIndexBuild != null && clock.now().minus(MAX_INDEX_STALENESS).isBefore(lastIndexBuild));
         return result;
     }
 
     @Override
     public String title() {
-        return "Lucene index";
+        return "Lucene index: " + slug;
     }
 
     @Override

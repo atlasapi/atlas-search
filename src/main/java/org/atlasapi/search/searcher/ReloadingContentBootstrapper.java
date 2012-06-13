@@ -62,7 +62,8 @@ public class ReloadingContentBootstrapper extends AbstractService {
                 lastIndexBuild = clock.now();
                 log.info("Finished loading content searcher");
             } catch (Exception e) {
-                log.error("Exception swapping content searchers", e);
+                lastIndexBuild = null;
+                log.error("Exception reloading content searchers", e);
             }
         }
     }
