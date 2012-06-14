@@ -23,17 +23,15 @@ import com.metabroadcast.common.media.MimeType;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
+import java.util.Arrays;
 import java.util.Set;
 import org.atlasapi.media.entity.Specialization;
 
 public class SearchServlet extends HttpServlet {
 
     private static final Log log = LogFactory.getLog(SearchServlet.class);
-    
     private static final SelectionBuilder SELECTION_BUILDER = Selection.builder();
-
     private static final long serialVersionUID = 1L;
-
     private final SearchResultsView view;
     private final DebuggableContentSearcher searcher;
 
@@ -64,8 +62,6 @@ public class SearchServlet extends HttpServlet {
         if (catchupWeighting.isNothing()) {
             return;
         }
-        
-        String specializationsCsv = request.getParameter("specializations");
 
         String publishersCsv = request.getParameter("publishers");
         if (Strings.isNullOrEmpty(publishersCsv)) {
@@ -84,15 +80,19 @@ public class SearchServlet extends HttpServlet {
             log.error(e.getMessage(), e);
             return;
         }
-        
-        Iterable<Specialization> specializations = Specialization.fromCsv(specializationsCsv);
-        
+
+        String specializationsCsv = request.getParameter("specializations");
+        Iterable<Specialization> specializations = null;
+        if (specializationsCsv != null && !specializationsCsv.isEmpty()) {
+            specializations = Specialization.fromCsv(specializationsCsv);
+        } else {
+            specializations = Arrays.asList(Specialization.FILM, Specialization.TV, Specialization.RADIO);
+        }
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
             ServletOutputStream outputStream = response.getOutputStream();
             outputStream.write(searcher.debug(
-                    new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting
-                            .requireValue())).getBytes());
+                    new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting.requireValue())).getBytes());
         } else {
             view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
                     catchupWeighting.requireValue())), request, response);
