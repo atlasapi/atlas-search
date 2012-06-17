@@ -22,11 +22,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.Person;
-import org.atlasapi.persistence.content.ContentCategory;
-import org.atlasapi.persistence.content.PeopleLister;
-import org.atlasapi.persistence.content.PeopleListerListener;
+import org.atlasapi.media.content.Content;
+import org.atlasapi.media.content.PeopleLister;
+import org.atlasapi.media.content.PeopleListerListener;
+import org.atlasapi.media.content.Person;
+import org.atlasapi.media.content.util.ContentCategory;
 import org.atlasapi.persistence.content.listing.ContentLister;
 import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;

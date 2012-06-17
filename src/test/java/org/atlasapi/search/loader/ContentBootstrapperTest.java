@@ -3,9 +3,9 @@ package org.atlasapi.search.loader;
 import java.util.Iterator;
 import java.util.List;
 
-import org.atlasapi.media.entity.Content;
-import org.atlasapi.media.entity.Item;
-import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.media.content.Content;
+import org.atlasapi.media.content.Item;
+import org.atlasapi.media.content.Publisher;
 import org.atlasapi.persistence.content.listing.ContentLister;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.search.searcher.ContentChangeListener;
