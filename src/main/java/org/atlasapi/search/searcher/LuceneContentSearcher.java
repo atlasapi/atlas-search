@@ -467,7 +467,7 @@ public class LuceneContentSearcher implements ContentChangeListener, DebuggableC
     }
     
     // Stop index from growing enormous
-    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS);
+    private final static List<Publisher> VALID_PUBLISHERS = ImmutableList.of(Publisher.BBC, Publisher.C4, Publisher.FIVE, Publisher.PA, Publisher.ITV, Publisher.SEESAW, Publisher.ITUNES, Publisher.HULU, Publisher.HBO, Publisher.PREVIEW_NETWORKS, Publisher.RADIO_TIMES);
     private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
 
         @Override
