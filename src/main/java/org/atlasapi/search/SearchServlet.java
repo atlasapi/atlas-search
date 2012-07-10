@@ -25,6 +25,7 @@ import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
 import java.util.Arrays;
 import java.util.Collections;
+
 import org.atlasapi.media.entity.Specialization;
 
 public class SearchServlet extends HttpServlet {
@@ -71,7 +72,6 @@ public class SearchServlet extends HttpServlet {
             view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required (and non-empty) parameter 'publishers'"));
             return;
         }
-
         ImmutableList<Publisher> publishers = ImmutableList.of();
         try {
             publishers = Publisher.fromCsv(publishersCsv);
@@ -89,7 +89,7 @@ public class SearchServlet extends HttpServlet {
         if (specializationsCsv != null && !specializationsCsv.isEmpty()) {
             specializations = Specialization.fromCsv(specializationsCsv);
         } else {
-            specializations = Arrays.asList(Specialization.FILM, Specialization.TV, Specialization.RADIO);
+            specializations = Collections.EMPTY_LIST;
         }
 
         if (request.getParameter("debug") != null) {
