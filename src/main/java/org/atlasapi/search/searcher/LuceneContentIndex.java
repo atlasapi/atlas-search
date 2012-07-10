@@ -77,6 +77,12 @@ import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
 import com.metabroadcast.common.time.Timestamper;
 import java.io.File;
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.atlasapi.media.entity.Song;
@@ -188,17 +194,24 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
     private static final Timestamper clock = new SystemClock();
-    private final Directory contentDir;
+    //
+    private final ReadWriteLock indexLock = new ReentrantReadWriteLock();
+    private final ReadWriteLock searchLock = new ReentrantReadWriteLock();
     private final KnownTypeContentResolver contentResolver;
+    private volatile File mainFile;
+    private volatile File shadowFile;
+    private volatile Directory mainDir;
+    private volatile Directory shadowDir;
     private volatile Searcher contentSearcher;
-    private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
+    private volatile Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
     
     public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver) {
         this.contentResolver = contentResolver;
         try {
-            this.contentDir = FSDirectory.open(luceneDir);
-            touchIndex();
-            this.contentSearcher = new IndexSearcher(contentDir);
+            this.mainFile = luceneDir;
+            this.mainDir = FSDirectory.open(luceneDir);
+            initIndex(this.mainDir);
+            this.contentSearcher = new IndexSearcher(mainDir);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -206,23 +219,41 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public SearchResults search(SearchQuery q) {
-        return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
+        searchLock.readLock().lock();
+        try {
+            return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
+        } finally {
+            searchLock.readLock().unlock();
+        }
     }
     
     @Override
     public String debug(SearchQuery q) {
-        return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
+        searchLock.readLock().lock();
+        try {
+            return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
+        } finally {
+            searchLock.readLock().unlock();
+        }
     }
     
     @Override
     public void beforeContentChange() {
+        indexLock.writeLock().lock();
+        try {
+            shadowFile = new File(mainFile.getCanonicalPath() + "-" + UUID.randomUUID().toString());
+            shadowDir = FSDirectory.open(shadowFile);
+            initIndex(shadowDir);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
     
     @Override
     public void contentChange(Iterable<? extends Described> contents) {
         IndexWriter writer = null;
         try {
-            writer = writerFor(contentDir);
+            writer = writerFor(shadowDir);
             writer.setWriteLockTimeout(5000);
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
                 Document doc = asDocument(content);
@@ -243,15 +274,18 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public void afterContentChange() {
-        optimizeIndex();
-        refreshSearcher();
+        try {
+            optimizeIndex(shadowDir);
+            swapIndexes();
+        } finally {
+            indexLock.writeLock().unlock();
+        }
     }
     
-    private void touchIndex() throws RuntimeException {
+    private void initIndex(Directory dir) throws RuntimeException {
         IndexWriter writer = null;
         try {
-            writer = writerFor(contentDir);
-            writer.commit();
+            writer = writerFor(dir);
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -261,10 +295,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         }
     }
     
-    private void optimizeIndex() throws RuntimeException {
+    private void optimizeIndex(Directory dir) throws RuntimeException {
         IndexWriter writer = null;
         try {
-            writer = writerFor(contentDir);
+            writer = writerFor(dir);
             writer.optimize();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -562,20 +596,30 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         return query;
     }
     
-    private void refreshSearcher() {
+    private void swapIndexes() {
         Exception error = null;
+        searchLock.writeLock().lock();
         try {
-            this.contentSearcher.close();
+            contentSearcher.close();
+            mainDir.close();
+            shadowDir.close();
+            File original = mainFile.getCanonicalFile();
+            // This should have a more sensible name:
+            if (mainFile.renameTo(new File(mainFile.getCanonicalPath() + UUID.randomUUID().toString()))) {
+                if (shadowFile.renameTo(original)) {
+                    mainFile = original;
+                    mainDir = FSDirectory.open(mainFile);
+                    contentSearcher = new IndexSearcher(mainDir);
+                } else {
+                    throw new IOException("Cannot rename shadow dir: " + shadowFile.getCanonicalPath());
+                }
+            } else {
+                throw new IOException("Cannot rename main dir: " + mainFile.getCanonicalPath());
+            }
         } catch (Exception ex) {
             error = ex;
         } finally {
-            // Refresh the searcher in any case:
-            try {
-                this.contentSearcher = new IndexSearcher(contentDir);
-            } catch (IOException ex) {
-                // An error in refreshing the searcher is more important than an error in closing it:
-                error =  ex;
-            }
+            searchLock.writeLock().unlock();
             // If there was an error, propagate it:
             if (error != null) {
                 throw new RuntimeException(error);

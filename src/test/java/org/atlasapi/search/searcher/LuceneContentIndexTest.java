@@ -131,8 +131,12 @@ public class LuceneContentIndexTest extends TestCase {
         luceneDir.deleteOnExit();
         contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
         searcher = new LuceneContentIndex(luceneDir, contentResolver);
-        searcher.contentChange(allContent);
-        searcher.afterContentChange();
+        searcher.beforeContentChange();
+        try {
+            searcher.contentChange(allContent);
+        } finally {
+            searcher.afterContentChange();
+        }
     }
 
     public void testFindingBrandsByTitle() throws Exception {
@@ -178,8 +182,12 @@ public class LuceneContentIndexTest extends TestCase {
 
         contentResolver.respondTo(ImmutableList.of(east, eastItem));
 
-        searcher.contentChange(ImmutableList.of(east));
-        searcher.afterContentChange();
+        searcher.beforeContentChange();
+        try {
+            searcher.contentChange(ImmutableList.of(east));
+        } finally {
+            searcher.afterContentChange();
+        }
         
         check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f, Maybe.just(100.0f), Maybe.<Float>nothing())), east);
     }
@@ -209,8 +217,12 @@ public class LuceneContentIndexTest extends TestCase {
         Brand theApprentice2 = new Brand();
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setTitle("Completely Different2");
-        searcher.contentChange(Arrays.asList(theApprentice2));
-        searcher.afterContentChange();
+        searcher.beforeContentChange();
+        try {
+            searcher.contentChange(Arrays.asList(theApprentice2));
+        } finally {
+            searcher.afterContentChange();
+        }
         //
         checkNot(searcher.search(title("aprentice")), theApprentice);
         check(searcher.search(title("Completely Different2")), theApprentice);
@@ -222,8 +234,12 @@ public class LuceneContentIndexTest extends TestCase {
         Brand theApprentice2 = new Brand();
         Brand.copyTo(theApprentice, theApprentice2);
         theApprentice2.setSpecialization(Specialization.RADIO);
-        searcher.contentChange(Arrays.asList(theApprentice2));
-        searcher.afterContentChange();
+        searcher.beforeContentChange();
+        try {
+            searcher.contentChange(Arrays.asList(theApprentice2));
+        } finally {
+            searcher.afterContentChange();
+        }
         //
         checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);
         check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);
