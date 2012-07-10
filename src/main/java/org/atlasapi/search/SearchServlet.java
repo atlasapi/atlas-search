@@ -23,6 +23,8 @@ import com.metabroadcast.common.media.MimeType;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
 import org.atlasapi.media.entity.Specialization;
 
@@ -65,14 +67,11 @@ public class SearchServlet extends HttpServlet {
             return;
         }
         
-        String specializationsCsv = request.getParameter("specializations");
-
         String publishersCsv = request.getParameter("publishers");
         if (Strings.isNullOrEmpty(publishersCsv)) {
             view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required (and non-empty) parameter 'publishers'"));
             return;
         }
-
         ImmutableList<Publisher> publishers = ImmutableList.of();
         try {
             publishers = Publisher.fromCsv(publishersCsv);
@@ -85,7 +84,13 @@ public class SearchServlet extends HttpServlet {
             return;
         }
         
-        Iterable<Specialization> specializations = Specialization.fromCsv(specializationsCsv);
+        String specializationsCsv = request.getParameter("specializations");
+        Iterable<Specialization> specializations = null;
+        if (specializationsCsv != null && !specializationsCsv.isEmpty()) {
+            specializations = Specialization.fromCsv(specializationsCsv);
+        } else {
+            specializations = Collections.EMPTY_LIST;
+        }
         
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
