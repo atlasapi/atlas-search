@@ -9,5 +9,5 @@ public interface ContentChangeListener {
     
     void contentChange(Iterable<? extends Described> content);
     
-    void afterContentChange();
+    void afterContentChange(boolean success);
 }

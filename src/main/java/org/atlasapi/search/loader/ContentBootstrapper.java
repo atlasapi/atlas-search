@@ -52,6 +52,7 @@ public class ContentBootstrapper {
     }
 
     public void loadAllIntoListener(final ContentChangeListener listener) {
+        Exception error = null;
         listener.beforeContentChange();
         try {
             if (log.isInfoEnabled()) {
@@ -100,9 +101,11 @@ public class ContentBootstrapper {
                 log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
             }
         } catch (Exception ex) {
+            error = ex;
             throw new RuntimeException(ex.getMessage(), ex);
         } finally {
-            listener.afterContentChange();
+            boolean success = error == null;
+            listener.afterContentChange(success);
         }
     }
 }

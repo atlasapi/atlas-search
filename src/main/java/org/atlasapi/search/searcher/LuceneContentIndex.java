@@ -101,97 +101,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
     private static final String FIELD_PRIORITY_CHANNEL = "priorityChannel";
     private static final String FIELD_FIRST_BROADCAST = "firstBroadcast";
-    
-    private static final Set<String> PRIORITY_CHANNELS = ImmutableSet.<String>builder()
-            .add("http://www.bbc.co.uk/services/bbcone/london")
-            .add("http://www.bbc.co.uk/services/bbcone/ni")
-            .add("http://www.bbc.co.uk/services/bbcone/cambridge")
-            .add("http://www.bbc.co.uk/services/bbcone/channel_islands")
-            .add("http://www.bbc.co.uk/services/bbcone/east")
-            .add("http://www.bbc.co.uk/services/bbcone/east_midlands")
-            .add("http://www.bbc.co.uk/services/bbcone/hd")
-            .add("http://www.bbc.co.uk/services/bbcone/north_east")
-            .add("http://www.bbc.co.uk/services/bbcone/north_west")
-            .add("http://www.bbc.co.uk/services/bbcone/oxford")
-            .add("http://www.bbc.co.uk/services/bbcone/scotland")
-            .add("http://www.bbc.co.uk/services/bbcone/south")
-            .add("http://www.bbc.co.uk/services/bbcone/south_east")
-            .add("http://www.bbc.co.uk/services/bbcone/wales")
-            .add("http://www.bbc.co.uk/services/bbcone/south_west")
-            .add("http://www.bbc.co.uk/services/bbcone/west")
-            .add("http://www.bbc.co.uk/services/bbcone/west_midlands")
-            .add("http://www.bbc.co.uk/services/bbcone/east_yorkshire")
-            .add("http://www.bbc.co.uk/services/bbcone/yorkshire")
-            .add("http://www.bbc.co.uk/services/bbctwo/england")
-            .add("http://www.bbc.co.uk/services/bbctwo/ni")
-            .add("http://www.bbc.co.uk/services/bbctwo/ni_analogue")
-            .add("http://www.bbc.co.uk/services/bbctwo/scotland")
-            .add("http://www.bbc.co.uk/services/bbctwo/wales")
-            .add("http://www.bbc.co.uk/services/bbctwo/wales_analogue")
-    		.add("http://www.itv.com/channels/itv1/anglia")
-    		.add("http://www.itv.com/channels/itv1/bordersouth")
-    		.add("http://www.itv.com/channels/itv1/london")
-    		.add("http://www.itv.com/channels/itv1/carltoncentral")
-    		.add("http://www.itv.com/channels/itv1/channel")
-    		.add("http://www.itv.com/channels/itv1/granada")
-    		.add("http://www.itv.com/channels/itv1/meridian")
-    		.add("http://www.itv.com/channels/itv1/tynetees")
-    		.add("http://ref.atlasapi.org/channels/ytv")
-    		.add("http://www.itv.com/channels/itv1/carltonwestcountry")
-    		.add("http://www.itv.com/channels/itv1/wales")
-    		.add("http://www.itv.com/channels/itv1/west")
-    		.add("http://ref.atlasapi.org/channels/stvcentral")
-    		.add("http://ref.atlasapi.org/channels/ulster")
-    		.add("http://www.itv.com/channels/itv1/bordernorth")
-    		.add("http://www.channel4.com")
-    		.add("http://ref.atlasapi.org/channels/s4c")
-    		.add("http://www.five.tv")
-    		.add("http://www.bbc.co.uk/services/bbcthree")
-    		.add("http://www.bbc.co.uk/services/bbcfour")
-    		.add("http://www.itv.com/channels/itv2")
-    		.add("http://www.itv.com/channels/itv3")
-    		.add("http://www.itv.com/channels/itv4")
-    		.add("http://www.e4.com")
-    		.add("http://www.channel4.com/more4")
-    		.add("http://film4.com")
-    		.add("http://ref.atlasapi.org/channels/sky1")
-    		.add("http://ref.atlasapi.org/channels/skyatlantic")
-    		.add("http://ref.atlasapi.org/channels/dave")
-    		.add("http://www.bbc.co.uk/services/bbchd")
-    		.add("http://ref.atlasapi.org/channels/watch")
-    		.add("http://ref.atlasapi.org/channels/gold")
-    		.add("http://ref.atlasapi.org/channels/comedycentral")
-    		.add("http://ref.atlasapi.org/channels/skysports1")
-    		.add("http://ref.atlasapi.org/channels/skysports2")
-    		.add("http://ref.atlasapi.org/channels/sky3")
-    		.add("http://ref.atlasapi.org/channels/sky2")
-    		.add("http://www.five.tv/channels/fiver")
-    		.add("http://www.five.tv/channels/five-usa")
-    		.add("http://www.bbc.co.uk/services/cbeebies")
-    		.add("http://www.bbc.co.uk/services/cbbc")
-    		.add("http://www.itv.com/channels/citv")
-    		.add("http://ref.atlasapi.org/channels/skyliving")
-    		.add("http://www.bbc.co.uk/services/radio1/england")
-    		.add("http://www.bbc.co.uk/services/radio2")
-    		.add("http://www.bbc.co.uk/services/radio3")
-    		.add("http://www.bbc.co.uk/services/radio4/fm")
-    		.add("http://www.bbc.co.uk/services/radio7")
-    		.add("http://www.bbc.co.uk/services/radio4/lw")
-    		.add("http://www.bbc.co.uk/services/5live")
-    		.add("http://www.bbc.co.uk/services/5livesportsextra")
-    		.add("http://www.bbc.co.uk/services/6music")
-    		.add("http://www.bbc.co.uk/services/1xtra")
-    		.add("http://www.bbc.co.uk/services/asiannetwork")
-    		.add("http://www.bbc.co.uk/services/worldservice")
-    		.build();
-    
+    private static final Set<String> PRIORITY_CHANNELS = ImmutableSet.<String>builder().add("http://www.bbc.co.uk/services/bbcone/london").add("http://www.bbc.co.uk/services/bbcone/ni").add("http://www.bbc.co.uk/services/bbcone/cambridge").add("http://www.bbc.co.uk/services/bbcone/channel_islands").add("http://www.bbc.co.uk/services/bbcone/east").add("http://www.bbc.co.uk/services/bbcone/east_midlands").add("http://www.bbc.co.uk/services/bbcone/hd").add("http://www.bbc.co.uk/services/bbcone/north_east").add("http://www.bbc.co.uk/services/bbcone/north_west").add("http://www.bbc.co.uk/services/bbcone/oxford").add("http://www.bbc.co.uk/services/bbcone/scotland").add("http://www.bbc.co.uk/services/bbcone/south").add("http://www.bbc.co.uk/services/bbcone/south_east").add("http://www.bbc.co.uk/services/bbcone/wales").add("http://www.bbc.co.uk/services/bbcone/south_west").add("http://www.bbc.co.uk/services/bbcone/west").add("http://www.bbc.co.uk/services/bbcone/west_midlands").add("http://www.bbc.co.uk/services/bbcone/east_yorkshire").add("http://www.bbc.co.uk/services/bbcone/yorkshire").add("http://www.bbc.co.uk/services/bbctwo/england").add("http://www.bbc.co.uk/services/bbctwo/ni").add("http://www.bbc.co.uk/services/bbctwo/ni_analogue").add("http://www.bbc.co.uk/services/bbctwo/scotland").add("http://www.bbc.co.uk/services/bbctwo/wales").add("http://www.bbc.co.uk/services/bbctwo/wales_analogue").add("http://www.itv.com/channels/itv1/anglia").add("http://www.itv.com/channels/itv1/bordersouth").add("http://www.itv.com/channels/itv1/london").add("http://www.itv.com/channels/itv1/carltoncentral").add("http://www.itv.com/channels/itv1/channel").add("http://www.itv.com/channels/itv1/granada").add("http://www.itv.com/channels/itv1/meridian").add("http://www.itv.com/channels/itv1/tynetees").add("http://ref.atlasapi.org/channels/ytv").add("http://www.itv.com/channels/itv1/carltonwestcountry").add("http://www.itv.com/channels/itv1/wales").add("http://www.itv.com/channels/itv1/west").add("http://ref.atlasapi.org/channels/stvcentral").add("http://ref.atlasapi.org/channels/ulster").add("http://www.itv.com/channels/itv1/bordernorth").add("http://www.channel4.com").add("http://ref.atlasapi.org/channels/s4c").add("http://www.five.tv").add("http://www.bbc.co.uk/services/bbcthree").add("http://www.bbc.co.uk/services/bbcfour").add("http://www.itv.com/channels/itv2").add("http://www.itv.com/channels/itv3").add("http://www.itv.com/channels/itv4").add("http://www.e4.com").add("http://www.channel4.com/more4").add("http://film4.com").add("http://ref.atlasapi.org/channels/sky1").add("http://ref.atlasapi.org/channels/skyatlantic").add("http://ref.atlasapi.org/channels/dave").add("http://www.bbc.co.uk/services/bbchd").add("http://ref.atlasapi.org/channels/watch").add("http://ref.atlasapi.org/channels/gold").add("http://ref.atlasapi.org/channels/comedycentral").add("http://ref.atlasapi.org/channels/skysports1").add("http://ref.atlasapi.org/channels/skysports2").add("http://ref.atlasapi.org/channels/sky3").add("http://ref.atlasapi.org/channels/sky2").add("http://www.five.tv/channels/fiver").add("http://www.five.tv/channels/five-usa").add("http://www.bbc.co.uk/services/cbeebies").add("http://www.bbc.co.uk/services/cbbc").add("http://www.itv.com/channels/citv").add("http://ref.atlasapi.org/channels/skyliving").add("http://www.bbc.co.uk/services/radio1/england").add("http://www.bbc.co.uk/services/radio2").add("http://www.bbc.co.uk/services/radio3").add("http://www.bbc.co.uk/services/radio4/fm").add("http://www.bbc.co.uk/services/radio7").add("http://www.bbc.co.uk/services/radio4/lw").add("http://www.bbc.co.uk/services/5live").add("http://www.bbc.co.uk/services/5livesportsextra").add("http://www.bbc.co.uk/services/6music").add("http://www.bbc.co.uk/services/1xtra").add("http://www.bbc.co.uk/services/asiannetwork").add("http://www.bbc.co.uk/services/worldservice").build();
     private static final int HOURS_IN_A_WEEK = 168;
-    
     private static final int TRUE = 1;
     private static final int FALSE = 0;
-    
     private static final float TOLERANCE = 0.000001f;
-    
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
     private static final Timestamper clock = new SystemClock();
     //
@@ -273,10 +187,14 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     @Override
-    public void afterContentChange() {
+    public void afterContentChange(boolean success) {
         try {
-            optimizeIndex(shadowDir);
-            swapIndexes();
+            shadowDir.close();
+            if (success) {
+                swapIndexes();
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
         } finally {
             indexLock.writeLock().unlock();
         }
@@ -286,20 +204,6 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         IndexWriter writer = null;
         try {
             writer = writerFor(dir);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (writer != null) {
-                closeWriter(writer);
-            }
-        }
-    }
-    
-    private void optimizeIndex(Directory dir) throws RuntimeException {
-        IndexWriter writer = null;
-        try {
-            writer = writerFor(dir);
-            writer.optimize();
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -335,7 +239,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         Document doc = new Document();
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.NOT_ANALYZED));
-        doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES,  Field.Index.NOT_ANALYZED));
+        doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES, Field.Index.NOT_ANALYZED));
         if (content.getSpecialization() != null) {
             doc.add(new Field(FIELD_CONTENT_SPECIALIZATION, content.getSpecialization().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
         }
@@ -361,7 +265,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             }
             Maybe<Broadcast> closestBroadcast = closestBroadcast(item.flattenBroadcasts(), now);
             int hourOfClosestBroadcast = closestBroadcast.hasValue() ? hourOf(closestBroadcast.requireValue()) : 0;
-
+            
             if (content instanceof Film) {
                 // Films should pretend to be at most 30 days old (to keep cinema films in the search)
                 hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
@@ -370,7 +274,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             if (hourOfClosestBroadcast < minHourTimestamp) {
                 return false;
             }
-
+            
             addBroadcastInformation(doc, hourOfClosestBroadcast, closestBroadcast);
             return true;
             
@@ -383,7 +287,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                 if (haveAvailable(items)) {
                     doc.add(new Field(FIELD_AVAILABLE, String.valueOf(TRUE), Field.Store.NO, Field.Index.NOT_ANALYZED));
                 }
-
+                
                 Maybe<Broadcast> closestBroadcastForItems = closestBroadcastForItems(items, now);
                 if (closestBroadcastForItems.isNothing() || hourOf(closestBroadcastForItems.requireValue()) < minHourTimestamp) {
                     return false;
@@ -396,12 +300,12 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private void addBroadcastInformation(Document doc, int hourOfClosestBroadcast, Maybe<Broadcast> closestBroadcast) {
-    	doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
-    	
-    	if(closestBroadcast.hasValue()) {
-	        doc.add(new NumericField(FIELD_PRIORITY_CHANNEL, Field.Store.YES, true).setIntValue(isOnPriorityChannel(closestBroadcast.requireValue())));
-	        doc.add(new NumericField(FIELD_FIRST_BROADCAST, Field.Store.YES, true).setIntValue(isFirstBroadcast(closestBroadcast.requireValue())));
-    	}
+        doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
+        
+        if (closestBroadcast.hasValue()) {
+            doc.add(new NumericField(FIELD_PRIORITY_CHANNEL, Field.Store.YES, true).setIntValue(isOnPriorityChannel(closestBroadcast.requireValue())));
+            doc.add(new NumericField(FIELD_FIRST_BROADCAST, Field.Store.YES, true).setIntValue(isFirstBroadcast(closestBroadcast.requireValue())));
+        }
     }
     
     private Maybe<Broadcast> closestBroadcastForItems(Iterable<Item> items, Timestamp now) {
@@ -412,15 +316,14 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private Maybe<Broadcast> closestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
-    	Iterable<Broadcast> publishedBroadcasts = Iterables.filter(broadcasts, new Predicate<Broadcast>() {
-
-			@Override
-			public boolean apply(Broadcast input) {
-				return input.isActivelyPublished();
-			}
-    		
-    	});
-    	
+        Iterable<Broadcast> publishedBroadcasts = Iterables.filter(broadcasts, new Predicate<Broadcast>() {
+            
+            @Override
+            public boolean apply(Broadcast input) {
+                return input.isActivelyPublished();
+            }
+        });
+        
         if (Iterables.isEmpty(publishedBroadcasts)) {
             return Maybe.nothing();
         }
@@ -450,13 +353,13 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             }
         };
     }
-
+    
     private int isOnPriorityChannel(Broadcast broadcast) {
-    	return PRIORITY_CHANNELS.contains(broadcast.getBroadcastOn()) ? TRUE : FALSE;
+        return PRIORITY_CHANNELS.contains(broadcast.getBroadcastOn()) ? TRUE : FALSE;
     }
     
     private int isFirstBroadcast(Broadcast broadcast) {
-    	return Boolean.TRUE.equals(broadcast.getRepeat()) ? FALSE : TRUE;
+        return Boolean.TRUE.equals(broadcast.getRepeat()) ? FALSE : TRUE;
     }
     
     private boolean haveAvailable(Iterable<Item> items) {
@@ -482,7 +385,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             titleQuery = new FilteredQuery(titleQuery, filter);
         }
         termQuery.add(titleQuery, Occur.MUST);
-
+        
         if (q.getCatchupWeighting() != 0.0f) {
             Query availabilityQuery = availabilityQuery(q.getCatchupWeighting());
             termQuery.add(availabilityQuery, Occur.SHOULD);
@@ -490,7 +393,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         
         Query query = termQuery;
         if (q.getBroadcastWeighting() != 0.0f) {
-        	query = new DistanceToBroadcastScore(termQuery).withBroadcastWeight(q.getBroadcastWeighting());
+            query = new DistanceToBroadcastScore(termQuery).withBroadcastWeight(q.getBroadcastWeighting());
         }
         
         query = new BooleanBoostScore(query, FIELD_PRIORITY_CHANNEL).withWeighting(q.getPriorityChannelWeighting().valueOrDefault(250.0f));
@@ -509,17 +412,15 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private static int hourOf(Broadcast b) {
-    	return hourOf(Timestamp.of(b.getTransmissionTime()));
+        return hourOf(Timestamp.of(b.getTransmissionTime()));
     }
     
     private static class DistanceToBroadcastScore extends CustomScoreQuery {
         
         private static final long serialVersionUID = 1L;
-        
         private final int currentHour;
-
         private float broadcastWeighting = 1;
-
+        
         public DistanceToBroadcastScore(Query subQuery) {
             super(subQuery, new ValueSourceQuery(new IntFieldSource(FIELD_BROADCAST_HOUR_TS)));
             setStrict(true);
@@ -533,42 +434,40 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         
         @Override
         public float customScore(int doc, float subQueryScore, float broadcastHour) {
-        	float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
-        	
-        	// This is inverted; a higher number means we scale less. We up-weigh
-        	// items broadcast or to be broadcast in the last week.
-        	int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
-        	
+            float hoursBetweenBroadcastAndNow = Math.abs(currentHour - broadcastHour);
+
+            // This is inverted; a higher number means we scale less. We up-weigh
+            // items broadcast or to be broadcast in the last week.
+            int scalingFactor = hoursBetweenBroadcastAndNow < HOURS_IN_A_WEEK ? 50 : 1;
+            
             float broadcastScore = (float) (1f / ((hoursBetweenBroadcastAndNow / scalingFactor) + 1));
-            return subQueryScore  + (broadcastWeighting  * broadcastScore * subQueryScore);
+            return subQueryScore + (broadcastWeighting * broadcastScore * subQueryScore);
         }
     }
     
     private static class BooleanBoostScore extends CustomScoreQuery {
-    	
-    	private static final long serialVersionUID = 1L;
-		private float weighting;
-    	
-    	public BooleanBoostScore(Query subQuery, String field) {
-    		super(subQuery, new ValueSourceQuery(new IntFieldSource(field)));
-    		setStrict(true);
-    	}
-    	
-    	public Query withWeighting(float weighting) {
-    		this.weighting = weighting;
-    		return this;
-    	}
-    	
-    	@Override
-    	public float customScore(int doc, float subQueryScore, float thisFieldValue) {
-    		if(Math.abs(thisFieldValue - 1) < TOLERANCE) {
-    			return weighting * subQueryScore;
-    		}
-    		else {
-    			return subQueryScore;
-    		}
-    	}
-    	
+        
+        private static final long serialVersionUID = 1L;
+        private float weighting;
+        
+        public BooleanBoostScore(Query subQuery, String field) {
+            super(subQuery, new ValueSourceQuery(new IntFieldSource(field)));
+            setStrict(true);
+        }
+        
+        public Query withWeighting(float weighting) {
+            this.weighting = weighting;
+            return this;
+        }
+        
+        @Override
+        public float customScore(int doc, float subQueryScore, float thisFieldValue) {
+            if (Math.abs(thisFieldValue - 1) < TOLERANCE) {
+                return weighting * subQueryScore;
+            } else {
+                return subQueryScore;
+            }
+        }
     }
     
     private Filter getPublisherFilter(Set<Publisher> includedPublishers) {
@@ -597,12 +496,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private void swapIndexes() {
-        Exception error = null;
         searchLock.writeLock().lock();
         try {
             contentSearcher.close();
             mainDir.close();
-            shadowDir.close();
             File original = mainFile.getCanonicalFile();
             // This should have a more sensible name:
             if (mainFile.renameTo(new File(mainFile.getCanonicalPath() + UUID.randomUUID().toString()))) {
@@ -617,13 +514,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                 throw new IOException("Cannot rename main dir: " + mainFile.getCanonicalPath());
             }
         } catch (Exception ex) {
-            error = ex;
+            throw new RuntimeException(ex);
         } finally {
             searchLock.writeLock().unlock();
-            // If there was an error, propagate it:
-            if (error != null) {
-                throw new RuntimeException(error);
-            }
         }
     }
     
@@ -700,9 +593,8 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         
         return collector.topDocs(startIndex, endIndex);
     }
-
     private final static Predicate<Described> FILTER_SEARCHABLE_CONTENT = new Predicate<Described>() {
-
+        
         @Override
         public boolean apply(Described input) {
             if (input instanceof ContentGroup && !(input instanceof Person)) {
