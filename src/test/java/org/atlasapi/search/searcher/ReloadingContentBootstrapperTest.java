@@ -75,7 +75,7 @@ public class ReloadingContentBootstrapperTest {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
         searcher = new LuceneContentIndex(luceneDir, contentResolver);
-        reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, 180, TimeUnit.MINUTES);
+        reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, true, 180, TimeUnit.MINUTES);
     }
 
     @Test
