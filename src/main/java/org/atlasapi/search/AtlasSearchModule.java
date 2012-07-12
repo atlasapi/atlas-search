@@ -35,6 +35,7 @@ public class AtlasSearchModule extends WebAwareModule {
     private final String cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").get();
     private final String cassandraRequestTimeout = Configurer.get("cassandra.requestTimeout").get();
     private final String luceneDir = Configurer.get("lucene.contentDir").get();
+    private final String luceneIndexAtStartup = Configurer.get("lucene.indexAtStartup", "").get();
 	private final String enablePeople = Configurer.get("people.enabled").get();
 
 	@Override
@@ -42,8 +43,8 @@ public class AtlasSearchModule extends WebAwareModule {
         LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()));
         
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, 180, TimeUnit.MINUTES);
-	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), scheduler, 7, TimeUnit.DAYS);
+        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
+	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
         
 		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(
                 new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper), 
