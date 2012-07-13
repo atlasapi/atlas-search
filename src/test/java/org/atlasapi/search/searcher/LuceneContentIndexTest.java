@@ -135,7 +135,7 @@ public class LuceneContentIndexTest extends TestCase {
         try {
             searcher.contentChange(allContent);
         } finally {
-            searcher.afterContentChange(true);
+            searcher.afterContentChange();
         }
     }
 
@@ -186,7 +186,7 @@ public class LuceneContentIndexTest extends TestCase {
         try {
             searcher.contentChange(ImmutableList.of(east));
         } finally {
-            searcher.afterContentChange(true);
+            searcher.afterContentChange();
         }
         
         check(searcher.search(new SearchQuery("east", Selection.ALL, ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE), 1.0f, 0.0f, 0.0f, Maybe.just(100.0f), Maybe.<Float>nothing())), east);
@@ -220,7 +220,7 @@ public class LuceneContentIndexTest extends TestCase {
         try {
             searcher.contentChange(Arrays.asList(theApprentice2));
         } finally {
-            searcher.afterContentChange(true);
+            searcher.afterContentChange();
         }
         //
         checkNot(searcher.search(title("aprentice")), theApprentice);
@@ -237,7 +237,7 @@ public class LuceneContentIndexTest extends TestCase {
         try {
             searcher.contentChange(Arrays.asList(theApprentice2));
         } finally {
-            searcher.afterContentChange(true);
+            searcher.afterContentChange();
         }
         //
         checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);

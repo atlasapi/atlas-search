@@ -56,7 +56,7 @@ public class ContentBootstrapperTest  {
             one(listener).beforeContentChange();
             one(listener).contentChange(ImmutableList.of(item1, item2));
             one(listener).contentChange(ImmutableList.of(item3));
-            one(listener).afterContentChange(true);
+            one(listener).afterContentChange();
         }});
         
         bootstrapper.loadAllIntoListener(listener);

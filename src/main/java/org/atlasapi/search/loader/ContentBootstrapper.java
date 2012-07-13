@@ -105,7 +105,7 @@ public class ContentBootstrapper {
             throw new RuntimeException(ex.getMessage(), ex);
         } finally {
             boolean success = error == null;
-            listener.afterContentChange(success);
+            listener.afterContentChange();
         }
     }
 }
