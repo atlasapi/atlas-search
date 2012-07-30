@@ -9,15 +9,16 @@ import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
 
 public class LuceneSearcherProbe implements HealthProbe {
-
-    private static final Duration MAX_INDEX_STALENESS = Duration.standardHours(12);
+ 
     private final Clock clock;
     private final ReloadingContentBootstrapper index;
     private final String slug;
+    private final Duration maxStaleness;
 
-    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
+    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index, Duration maxStaleness) {
         this.slug = slug;
         this.index = index;
+        this.maxStaleness = maxStaleness;
         this.clock = new SystemClock();
     }
 
@@ -27,7 +28,7 @@ public class LuceneSearcherProbe implements HealthProbe {
         DateTime lastIndexBuild = index.lastIndexBuild();
         result.add("Last index rebuild finish time",
                 lastIndexBuild != null ? lastIndexBuild.toString("dd/MM/yy HH:mm") : "nil",
-                lastIndexBuild != null && clock.now().minus(MAX_INDEX_STALENESS).isBefore(lastIndexBuild));
+                lastIndexBuild != null && clock.now().minus(maxStaleness).isBefore(lastIndexBuild));
         return result;
     }
 

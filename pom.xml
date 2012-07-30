@@ -236,6 +236,11 @@
             <artifactId>lucene-misc</artifactId>
             <version>3.0.1</version>
         </dependency>
+        <dependency>
+        	<groupId>com.metabroadcast.common.webapp</groupId>
+        	<artifactId>common-webapp</artifactId>
+        	<version>${common.version}</version>
+        </dependency>
     </dependencies>
 
     <scm>
