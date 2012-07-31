@@ -13,7 +13,6 @@ import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
-import org.atlasapi.search.www.HealthController;
 import org.atlasapi.search.www.WebAwareModule;
 import org.springframework.context.annotation.Bean;
 
@@ -22,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
+import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
 import java.io.File;
 import java.util.List;
@@ -58,8 +58,9 @@ public class AtlasSearchModule extends WebAwareModule {
 	    ReloadingContentBootstrapper musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
         
 		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(
-                new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper), 
-                new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper))));
+                new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper, Duration.standardHours(24)), 
+                new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)),
+                new LuceneSearcherProbe("mongo-music", musicBootStrapper, Duration.standardHours(24)))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		
 		mongoBootstrapper.start();
