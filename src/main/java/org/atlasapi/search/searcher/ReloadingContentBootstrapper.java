@@ -8,11 +8,12 @@ import org.apache.commons.logging.LogFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractService;
-import org.atlasapi.search.loader.ContentBootstrapper;
 import org.joda.time.DateTime;
 
 import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
+import org.atlasapi.persistence.bootstrap.ContentBootstrapper;
+import org.atlasapi.persistence.bootstrap.ContentChangeListener;
 
 public class ReloadingContentBootstrapper extends AbstractService {
 
@@ -50,7 +51,7 @@ public class ReloadingContentBootstrapper extends AbstractService {
         long initialDelay = indexAtStartup ? 0 : delayInMillis;
         this.executor.scheduleWithFixedDelay(new LoadContentSearcher(), initialDelay, delayInMillis, TimeUnit.MILLISECONDS);
     }
-    
+
     public DateTime lastIndexBuild() {
         return lastIndexBuild;
     }

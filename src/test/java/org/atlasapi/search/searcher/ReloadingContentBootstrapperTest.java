@@ -23,7 +23,7 @@ import org.junit.runner.RunWith;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
-import org.atlasapi.search.loader.ContentBootstrapper;
+import org.atlasapi.persistence.bootstrap.ContentBootstrapper;
 import org.junit.Before;
 
 @RunWith(JMock.class)
