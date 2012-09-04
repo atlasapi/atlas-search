@@ -1,7 +1,6 @@
 package org.atlasapi.search;
 
 
-import com.google.common.base.Splitter;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
@@ -12,12 +11,18 @@ import org.atlasapi.search.www.WebAwareModule;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
+import com.netflix.astyanax.AstyanaxContext;
+import com.netflix.astyanax.Keyspace;
+import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
+import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
+import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
+import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
+import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,6 +31,7 @@ import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.joda.time.Duration;
+import static org.atlasapi.persistence.cassandra.CassandraSchema.*;
 
 public class AtlasSearchModule extends WebAwareModule {
 
@@ -84,11 +90,17 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
-			CassandraContentStore cassandraContentStore = new CassandraContentStore(Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
-                    Integer.parseInt(cassandraPort), 
-                    Runtime.getRuntime().availableProcessors() * 10, 
-                    Integer.parseInt(cassandraConnectionTimeout), 
-                    Integer.parseInt(cassandraRequestTimeout));
+            AstyanaxContext<Keyspace> cassandraContext = new AstyanaxContext.Builder().forCluster(CLUSTER).forKeyspace(KEYSPACE).
+                withAstyanaxConfiguration(new AstyanaxConfigurationImpl().setDiscoveryType(NodeDiscoveryType.NONE)).
+                withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(CLUSTER).setPort(Integer.parseInt(cassandraPort)).
+                setMaxBlockedThreadsPerHost(Runtime.getRuntime().availableProcessors() * 10).
+                setMaxConnsPerHost(Runtime.getRuntime().availableProcessors() * 10).
+                setConnectTimeout(Integer.parseInt(cassandraConnectionTimeout)).
+                setSeeds(cassandraSeeds)).
+                withConnectionPoolMonitor(new CountingConnectionPoolMonitor()).
+                buildKeyspace(ThriftFamilyFactory.getInstance());
+			CassandraContentStore cassandraContentStore = new CassandraContentStore(cassandraContext, Integer.parseInt(cassandraRequestTimeout));
+            cassandraContext.start();
             cassandraContentStore.init();
             return cassandraContentStore;
 		} catch (Exception e) {
