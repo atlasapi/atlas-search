@@ -37,6 +37,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String mongoDbName = Configurer.get("mongo.dbName").get();
+    private final String cassandraEnv = Configurer.get("cassandra.env").get();
     private final String cassandraSeeds = Configurer.get("cassandra.seeds").get();
     private final String cassandraPort = Configurer.get("cassandra.port").get();
     private final String cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").get();
@@ -90,7 +91,7 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
-            AstyanaxContext<Keyspace> cassandraContext = new AstyanaxContext.Builder().forCluster(CLUSTER).forKeyspace(KEYSPACE).
+            AstyanaxContext<Keyspace> cassandraContext = new AstyanaxContext.Builder().forCluster(CLUSTER).forKeyspace(getKeyspace(cassandraEnv)).
                 withAstyanaxConfiguration(new AstyanaxConfigurationImpl().setDiscoveryType(NodeDiscoveryType.NONE)).
                 withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(CLUSTER).setPort(Integer.parseInt(cassandraPort)).
                 setMaxBlockedThreadsPerHost(Runtime.getRuntime().availableProcessors() * 10).
