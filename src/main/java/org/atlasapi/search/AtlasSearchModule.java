@@ -2,6 +2,8 @@ package org.atlasapi.search;
 
 
 import com.google.common.base.Splitter;
+
+import org.atlasapi.persistence.cassandra.CassandraSchema;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
@@ -30,6 +32,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String mongoDbName = Configurer.get("mongo.dbName").get();
+	private final String cassandraEnv = Configurer.get("cassandra.env").get();
     private final String cassandraSeeds = Configurer.get("cassandra.seeds").get();
     private final String cassandraPort = Configurer.get("cassandra.port").get();
     private final String cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").get();
@@ -84,11 +87,13 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
-			CassandraContentStore cassandraContentStore = new CassandraContentStore(Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
-                    Integer.parseInt(cassandraPort), 
-                    Runtime.getRuntime().availableProcessors() * 10, 
-                    Integer.parseInt(cassandraConnectionTimeout), 
-                    Integer.parseInt(cassandraRequestTimeout));
+			CassandraContentStore cassandraContentStore = new CassandraContentStore(
+			    CassandraSchema.getKeyspace(cassandraEnv),
+			    Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
+                Integer.parseInt(cassandraPort), 
+                Runtime.getRuntime().availableProcessors() * 10, 
+                Integer.parseInt(cassandraConnectionTimeout), 
+                Integer.parseInt(cassandraRequestTimeout));
             cassandraContentStore.init();
             return cassandraContentStore;
 		} catch (Exception e) {
