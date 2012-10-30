@@ -87,8 +87,9 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
+		    System.out.println(cassandraEnv);
 			CassandraContentStore cassandraContentStore = new CassandraContentStore(
-			    CassandraSchema.getKeyspace(cassandraEnv),
+			    cassandraEnv,
 			    Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
                 Integer.parseInt(cassandraPort), 
                 Runtime.getRuntime().availableProcessors() * 10, 
