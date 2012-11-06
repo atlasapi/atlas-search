@@ -64,9 +64,9 @@ public class AtlasSearchModule extends WebAwareModule {
                 new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		
+		musicBootStrapper.start();
 		mongoBootstrapper.start();
         cassandraBootstrapper.start();
-        musicBootStrapper.start();
 	}
 	
     @Bean
