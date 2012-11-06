@@ -1,6 +1,9 @@
 package org.atlasapi.search;
 
 
+import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.persistence.content.ContentCategory;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
@@ -24,6 +27,7 @@ import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +36,7 @@ import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.joda.time.Duration;
 import static org.atlasapi.persistence.cassandra.CassandraSchema.*;
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
 public class AtlasSearchModule extends WebAwareModule {
 
@@ -52,6 +57,7 @@ public class AtlasSearchModule extends WebAwareModule {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, 180, TimeUnit.MINUTES);
 	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), scheduler, 7, TimeUnit.DAYS);
+	    ReloadingContentBootstrapper musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, 120, TimeUnit.MINUTES);
         
 		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(
                 new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper, Duration.standardHours(24)), 
@@ -60,6 +66,7 @@ public class AtlasSearchModule extends WebAwareModule {
 		
 		mongoBootstrapper.start();
         cassandraBootstrapper.start();
+        musicBootStrapper.start();
 	}
 	
     @Bean
@@ -76,6 +83,20 @@ public class AtlasSearchModule extends WebAwareModule {
     ContentBootstrapper cassandraBootstrapper() {
         ContentBootstrapper bootstrapper = new ContentBootstrapper();
         bootstrapper.withContentListers(cassandra());
+        return bootstrapper;
+    }
+
+    @Bean
+    ContentBootstrapper musicBootstrapper() {
+        List<Publisher> musicPublishers = ImmutableList.of(Publisher.BBC_MUSIC, Publisher.SPOTIFY, 
+            Publisher.YOUTUBE, Publisher.RDIO, Publisher.SOUNDCLOUD, 
+            Publisher.AMAZON_UK, Publisher.ITUNES);
+        ContentListingCriteria criteria = defaultCriteria()
+                .forContent(ContentCategory.TOP_LEVEL_ITEM)
+                .forPublishers(musicPublishers )
+                .build();
+        ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria );
+        bootstrapper.withContentListers(new MongoContentLister(mongo()));
         return bootstrapper;
     }
 
