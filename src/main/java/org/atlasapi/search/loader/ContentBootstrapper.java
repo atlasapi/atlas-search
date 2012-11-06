@@ -28,6 +28,7 @@ import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.PeopleLister;
 import org.atlasapi.persistence.content.PeopleListerListener;
 import org.atlasapi.persistence.content.listing.ContentLister;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
@@ -39,8 +40,19 @@ import com.google.common.collect.Lists;
 public class ContentBootstrapper {
 
     private static final Log log = LogFactory.getLog(ContentBootstrapper.class);
+    
+    private final ContentListingCriteria criteria;
+
     private ContentLister[] contentListers;
     private PeopleLister[] peopleListers;
+
+    public ContentBootstrapper() {
+        this(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
+    }
+
+    public ContentBootstrapper(ContentListingCriteria criteria) {
+        this.criteria = criteria;
+    }
 
     public ContentBootstrapper withContentListers(ContentLister... contentListers) {
         this.contentListers = contentListers;
@@ -61,10 +73,8 @@ public class ContentBootstrapper {
 
             int contentProcessed = 0;
             for (ContentLister lister : contentListers) {
-                List<ContentCategory> contentCategories = Lists.newArrayList(ContentCategory.TOP_LEVEL_CONTENT);
-                contentCategories.remove(ContentCategory.CONTENT_GROUP);
-                //
-                Iterator<Content> content = lister.listContent(defaultCriteria().forContent(contentCategories).build());
+
+                Iterator<Content> content = lister.listContent(criteria);
                 Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
                 while (partitionedContent.hasNext()) {
                     List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
