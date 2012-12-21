@@ -7,7 +7,6 @@
     <url>http://docs.atlasapi.org</url>
     <version>5.0-SNAPSHOT</version>
     <description>Atlas 3.0 API</description>
-
     <build>
         <finalName>atlas-search</finalName>
         <plugins>
