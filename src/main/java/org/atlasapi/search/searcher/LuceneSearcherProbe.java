@@ -9,7 +9,7 @@ import com.metabroadcast.common.time.Clock;
 import com.metabroadcast.common.time.SystemClock;
 
 public class LuceneSearcherProbe implements HealthProbe {
- 
+
     private final Clock clock;
     private final ReloadingContentBootstrapper index;
     private final String slug;

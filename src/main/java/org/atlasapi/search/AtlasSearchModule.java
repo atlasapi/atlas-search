@@ -1,16 +1,30 @@
 package org.atlasapi.search;
 
 
+import static org.atlasapi.persistence.cassandra.CassandraSchema.CLUSTER;
+import static org.atlasapi.persistence.cassandra.CassandraSchema.getKeyspace;
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
+
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentCategory;
+import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
+import org.atlasapi.search.loader.ContentBootstrapper;
+import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
 import org.atlasapi.search.www.WebAwareModule;
+import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.collect.ImmutableList;
@@ -26,28 +40,18 @@ import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.thrift.ThriftFamilyFactory;
-import java.io.File;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
-import org.atlasapi.search.loader.ContentBootstrapper;
-import org.atlasapi.search.searcher.LuceneContentIndex;
-import org.joda.time.Duration;
-import static org.atlasapi.persistence.cassandra.CassandraSchema.*;
-import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
 public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String mongoDbName = Configurer.get("mongo.dbName").get();
-    private final String cassandraEnv = Configurer.get("cassandra.env").get();
+	private final String cassandraEnv = Configurer.get("cassandra.env").get();
     private final String cassandraSeeds = Configurer.get("cassandra.seeds").get();
     private final String cassandraPort = Configurer.get("cassandra.port").get();
     private final String cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").get();
     private final String cassandraRequestTimeout = Configurer.get("cassandra.requestTimeout").get();
     private final String luceneDir = Configurer.get("lucene.contentDir").get();
+    private final String luceneIndexAtStartup = Configurer.get("lucene.indexAtStartup", "").get();
 	private final String enablePeople = Configurer.get("people.enabled").get();
 
 	@Override
@@ -55,18 +59,20 @@ public class AtlasSearchModule extends WebAwareModule {
         LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()));
         
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, 180, TimeUnit.MINUTES);
-	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(), scheduler, 7, TimeUnit.DAYS);
-	    ReloadingContentBootstrapper musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, 120, TimeUnit.MINUTES);
+        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
+	    ReloadingContentBootstrapper cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(),scheduler,  Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
+	    ReloadingContentBootstrapper musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
         
 		bind("/system/health", new HealthController(ImmutableList.<HealthProbe>of(
                 new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper, Duration.standardHours(24)), 
-                new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)))));
+                new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)),
+                new LuceneSearcherProbe("mongo-music", musicBootStrapper, Duration.standardHours(24)))));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		
 		musicBootStrapper.start();
 		mongoBootstrapper.start();
         cassandraBootstrapper.start();
+        musicBootStrapper.start();
 	}
 	
     @Bean
