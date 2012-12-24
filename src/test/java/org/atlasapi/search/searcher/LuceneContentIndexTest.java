@@ -94,13 +94,18 @@ public class LuceneContentIndexTest extends TestCase {
             .withDescription("lots of words that are the same alpha beta").withVersions(broadcast().buildInVersion()).build();
     private final Item gordonRamsaysCookingProgramme = complexItem().withUri("/items/ramsay/2").withTitle("Gordon Ramsay's cooking show").withDescription("lots of words that are the same alpha beta")
             .withVersions(broadcast().buildInVersion()).build();
+    
+    private final Brand theWire = brand("/the-wire", "The Wire");
+    private final Item theWireItem = complexItem().withUri("/items/the-wire/").withBrand(theWire).withTitle("The Wire").withVersions(broadcast().buildInVersion()).build();
 
+    private final Item wiringLights = complexItem().withUri("/items/wiring-lights").withTitle("Wiring Lights").withVersions(broadcast().buildInVersion()).build();
+    
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
-            euromillionsDraw, brasseye, science, politicsEast, theApprentice);
+            euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire);
 
     private final List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
             theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-            brasseyeItem, scienceItem, theApprenticeItem);
+            brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
     private LuceneContentIndex searcher;
@@ -208,6 +213,33 @@ public class LuceneContentIndexTest extends TestCase {
 
         check(searcher.search(title("spook")), spooks, spookyTheCat);
         check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
+    }
+    
+    public void testTypeParameter() {
+        check(searcher.search(SearchQuery.builder("The City Gardener").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).withType("container").build()), theCityGardener);
+        checkNot(searcher.search(SearchQuery.builder("The City Gardener").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).withType("item").build()), theCityGardener);
+        check(searcher.search(SearchQuery.builder("Spooks").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).withType("item").build()), spooks, spookyTheCat);
+        checkNot(searcher.search(SearchQuery.builder("The City Gardener").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).withType("container").build()), spooks, spookyTheCat);
+    }
+    
+    public void testTopLevelOnlyFlag() {
+        check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).isTopLevel(true).build()), theWire, wiringLights);
+        check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
+        check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).isTopLevel(null).build()), theWire, theWireItem, wiringLights);
+    }
+    
+    public void testTopLevelTypes() {
+        check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).isTopLevel(true).withType("item").build()), wiringLights);
+        check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
+            .withTitleWeighting(1.0f).isTopLevel(true).withType("container").build()), theWire);
     }
     
     protected static SearchQuery title(String term) {

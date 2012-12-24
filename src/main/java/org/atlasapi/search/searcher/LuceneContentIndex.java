@@ -29,9 +29,11 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanFilter;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.Filter;
+import org.apache.lucene.search.FilterClause;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -344,8 +346,8 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
         titleQuery.setBoost(q.getTitleWeighting());
         // Filtered by specialization:
-        if (!q.getIncludedSpecializations().isEmpty()) {
-            Filter filter = getSpecializationFilter(q.getIncludedSpecializations());
+        if (isFiltered(q)) {
+            Filter filter = titleFilterFor(q);
             titleQuery = new FilteredQuery(titleQuery, filter);
         }
         query.add(titleQuery, Occur.MUST);
@@ -360,6 +362,32 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         } else {
             return query;
         }
+    }
+
+    private Filter titleFilterFor(SearchQuery q) {
+        BooleanFilter f = new BooleanFilter();
+        if (!q.getIncludedSpecializations().isEmpty()) {
+            f.add(new FilterClause(getSpecializationFilter(q.getIncludedSpecializations()), Occur.MUST));
+        }
+        if ("item".equals(q.type())) {
+            TermsFilter typeField = new TermsFilter();
+            typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, FALSE));
+            f.add(new FilterClause(typeField, Occur.MUST));
+        } else if ("container".equals(q.type())) {
+            TermsFilter typeField = new TermsFilter();
+            typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, TRUE));
+            f.add(new FilterClause(typeField, Occur.MUST));
+        }
+        if (q.topLevelOnly() != null) {
+            TermsFilter typeField = new TermsFilter();
+            typeField.addTerm(new Term(FIELD_CONTENT_IS_TOP_LEVEL, q.topLevelOnly() ? TRUE : FALSE));
+            f.add(new FilterClause(typeField, Occur.MUST));
+        }
+        return f;
+    }
+
+    private boolean isFiltered(SearchQuery q) {
+        return !q.getIncludedSpecializations().isEmpty() || !Strings.isNullOrEmpty(q.type()) || q.topLevelOnly() != null;
     }
     private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
     
