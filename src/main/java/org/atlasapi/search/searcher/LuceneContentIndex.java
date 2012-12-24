@@ -319,7 +319,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         boolean topLevel = true;
         if (content instanceof Item && ((Item)content).getContainer() != null) {
             topLevel = false;
-        } else if (content instanceof Series && ((Item)content).getContainer() != null) {
+        } else if (content instanceof Series && ((Series)content).getParent() != null) {
             topLevel = false;
         }
         doc.add(new Field(FIELD_CONTENT_IS_TOP_LEVEL, String.valueOf(topLevel ? TRUE : FALSE), Field.Store.NO, Field.Index.NOT_ANALYZED));
