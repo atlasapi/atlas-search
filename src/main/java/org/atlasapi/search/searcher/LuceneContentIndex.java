@@ -54,6 +54,7 @@ import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.LookupRef;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.media.entity.Series;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
@@ -91,8 +92,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private static final String FIELD_CONTENT_URI = "contentUri";
     private static final String FIELD_AVAILABLE = "available";
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
+    private static final String FIELD_CONTENT_IS_CONTAINER = "isContainer";
+    private static final String FIELD_CONTENT_IS_TOP_LEVEL = "topLevel";
     private static final int HOURS_IN_A_WEEK = 168;
     private static final String TRUE = "T";
+    private static final String FALSE = "F";
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
     private static final Timestamper clock = new SystemClock();
     private final Directory contentDir;
@@ -218,6 +222,15 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         if (!addBroadcastAndAvailabilityFields(content, doc)) {
             return null;
         }
+        boolean container = content instanceof Container;
+        doc.add(new Field(FIELD_CONTENT_IS_CONTAINER, container ? TRUE : FALSE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+        boolean topLevel = true;
+        if (content instanceof Item && ((Item)content).getContainer() != null) {
+            topLevel = false;
+        } else if (content instanceof Series && ((Series)content).getParent() != null) {
+            topLevel = false;
+        }
+        doc.add(new Field(FIELD_CONTENT_IS_TOP_LEVEL, topLevel ? TRUE : FALSE, Field.Store.NO, Field.Index.NOT_ANALYZED));
         return doc;
     }
     
