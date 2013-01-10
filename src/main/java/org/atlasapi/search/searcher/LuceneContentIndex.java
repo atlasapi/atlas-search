@@ -64,6 +64,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -132,16 +133,23 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             writer = writerFor(contentDir);
             writer.setWriteLockTimeout(5000);
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
-                Document doc = asDocument(content);
-                if (doc != null) {
-                    writer.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
-                } else if (log.isInfoEnabled()) {
-                    log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
+                try {
+                    Document doc = asDocument(content);
+                    if (doc != null) {
+                        writer.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
+                    } else if (log.isInfoEnabled()) {
+                        log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
+                    }
+                }
+                catch (Exception e) {
+                    log.error("Failed to index document " + content.getCanonicalUri(), e);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
+        } 
+        catch(IOException e) {
+            Throwables.propagate(e);
+        }
+        finally {
             if (writer != null) {
                 closeWriter(writer);
             }
