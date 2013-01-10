@@ -18,8 +18,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -59,11 +57,14 @@ import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -83,7 +84,7 @@ import org.atlasapi.media.entity.Specialization;
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
     private static final int MAX_RESULTS = 1000;
-    private static final Log log = LogFactory.getLog(LuceneContentIndex.class);
+    private static final Logger log = LoggerFactory.getLogger(LuceneContentIndex.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
     static final String FIELD_CONTENT_TITLE = "title";
     static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
@@ -132,16 +133,23 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             writer = writerFor(contentDir);
             writer.setWriteLockTimeout(5000);
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
-                Document doc = asDocument(content);
-                if (doc != null) {
-                    writer.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
-                } else if (log.isInfoEnabled()) {
-                    log.info("Content with title " + content.getTitle() + " and uri " + content.getCanonicalUri() + " not added due to null elements");
+                try {
+                    Document doc = asDocument(content);
+                    if (doc != null) {
+                        writer.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
+                    } else {
+                        log.info("Content with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
+                    }
+                }
+                catch (Exception e) {
+                    log.error("Failed to index document " + content.getCanonicalUri(), e);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
+        } 
+        catch(IOException e) {
+            Throwables.propagate(e);
+        }
+        finally {
             if (writer != null) {
                 closeWriter(writer);
             }
