@@ -1,6 +1,8 @@
 package org.atlasapi.search;
 
 
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 
 import org.atlasapi.media.entity.Publisher;
@@ -16,6 +18,7 @@ import org.atlasapi.search.www.WebAwareModule;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
@@ -24,8 +27,10 @@ import com.metabroadcast.common.properties.Configurer;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
 import com.mongodb.ReadPreference;
+import com.mongodb.ServerAddress;
 
 import java.io.File;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -114,7 +119,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	public @Bean DatabasedMongo mongo() {
 		try {
-			Mongo mongo = new Mongo(mongoHost);
+			Mongo mongo = new Mongo(mongoHosts());
 			mongo.setReadPreference(ReadPreference.secondaryPreferred());
             return new DatabasedMongo(mongo, mongoDbName);
 		} catch (Exception e) {
@@ -138,4 +143,19 @@ public class AtlasSearchModule extends WebAwareModule {
 			throw new RuntimeException(e);
 		}
 	}
+    
+    private List<ServerAddress> mongoHosts() {
+        Splitter splitter = Splitter.on(",").omitEmptyStrings().trimResults();
+        return ImmutableList.copyOf(Iterables.filter(Iterables.transform(splitter.split(mongoHost), new Function<String, ServerAddress>() {
+
+            @Override
+            public ServerAddress apply(String input) {
+                try {
+                    return new ServerAddress(input, 27017);
+                } catch (UnknownHostException e) {
+                    return null;
+                }
+            }
+        }), Predicates.notNull()));
+    }
 }
