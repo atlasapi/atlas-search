@@ -23,6 +23,8 @@ import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.properties.Configurer;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
+import com.mongodb.ReadPreference;
+
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -113,7 +115,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	public @Bean DatabasedMongo mongo() {
 		try {
 			Mongo mongo = new Mongo(mongoHost);
-			mongo.slaveOk();
+			mongo.setReadPreference(ReadPreference.secondaryPreferred());
             return new DatabasedMongo(mongo, mongoDbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
