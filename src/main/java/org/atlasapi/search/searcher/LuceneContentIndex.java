@@ -13,6 +13,7 @@
  permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -41,6 +42,7 @@ import org.apache.lucene.search.function.CustomScoreQuery;
 import org.apache.lucene.search.function.IntFieldSource;
 import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Broadcast;
@@ -75,9 +77,7 @@ import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
 import com.metabroadcast.common.time.Timestamper;
-import java.io.File;
 import org.apache.lucene.search.FilteredQuery;
-import org.apache.lucene.store.FSDirectory;
 import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
 
@@ -100,12 +100,15 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private final KnownTypeContentResolver contentResolver;
     private volatile Searcher contentSearcher;
     private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
+    private final IndexWriter indexWriter;
     
     public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver) {
         this.contentResolver = contentResolver;
         try {
             this.contentDir = FSDirectory.open(luceneDir);
+            this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
             touchIndex();
+            indexWriter.setWriteLockTimeout(5000);
             this.contentSearcher = new IndexSearcher(contentDir);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -128,15 +131,13 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public void contentChange(Iterable<? extends Described> contents) {
-        IndexWriter writer = null;
+        
         try {
-            writer = writerFor(contentDir);
-            writer.setWriteLockTimeout(5000);
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
                 try {
                     Document doc = asDocument(content);
                     if (doc != null) {
-                        writer.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
+                        indexWriter.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
                     } else {
                         log.info("Content with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
                     }
@@ -145,14 +146,8 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                     log.error("Failed to index document " + content.getCanonicalUri(), e);
                 }
             }
-        } 
-        catch(IOException e) {
-            Throwables.propagate(e);
-        }
-        finally {
-            if (writer != null) {
-                closeWriter(writer);
-            }
+        } finally {
+            commitWriter();
         }
     }
     
@@ -162,51 +157,30 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         refreshSearcher();
     }
     
-    private void touchIndex() throws RuntimeException {
-        IndexWriter writer = null;
+    private void touchIndex() {
         try {
-            writer = writerFor(contentDir);
-            writer.commit();
+            indexWriter.commit();
         } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (writer != null) {
-                closeWriter(writer);
-            }
+            Throwables.propagate(e);
         }
     }
     
-    private void optimizeIndex() throws RuntimeException {
-        IndexWriter writer = null;
+    private void optimizeIndex()  {
         try {
-            writer = writerFor(contentDir);
-            writer.optimize();
+            indexWriter.optimize();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            Throwables.propagate(e);
         } finally {
-            if (writer != null) {
-                closeWriter(writer);
-            }
+            commitWriter();
         }
     }
     
-    private void closeWriter(IndexWriter writer) {
+    private void commitWriter() {
         try {
-            writer.commit();
+            indexWriter.commit();
         } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                writer.close();
-            } catch (Exception e) {
-                // not much that can be done here
-                throw new RuntimeException(e);
-            }
-        }
-    }
-    
-    private static IndexWriter writerFor(Directory dir) throws CorruptIndexException, LockObtainFailedException, IOException {
-        return new IndexWriter(dir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
+            Throwables.propagate(e);
+        } 
     }
     
     private Document asDocument(Described content) {
@@ -231,7 +205,6 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     private boolean addBroadcastAndAvailabilityFields(Described content, Document doc) {
         Timestamp now = clock.timestamp();
-        int minHourTimestamp = hourOf(Timestamp.of(now.toDateTimeUTC().minus(maxBroadcastAgeForInclusion)));
         
         if (content instanceof Song) {
             return true;
@@ -243,13 +216,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
             
             if (content instanceof Film) {
-                // Films should pretend to be at most 30 days old (to keep cinema films in the search)
+                // Films should pretend to be at most 30 days old 
                 hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
             }
             
-            if (hourOfClosestBroadcast < minHourTimestamp) {
-                return false;
-            }
             doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
             return true;
             
@@ -264,9 +234,6 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                 }
                 
                 int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(items, now);
-                if (hourOfClosestBroadcastForItems < minHourTimestamp) {
-                    return false;
-                }
                 doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
                 return true;
             }
