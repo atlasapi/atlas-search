@@ -61,7 +61,7 @@ public class AtlasSearchModule extends WebAwareModule {
         
         Builder<HealthProbe> probes = ImmutableList.builder();
         
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
         ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
         probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper, Duration.standardHours(24)));
         
