@@ -157,7 +157,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         refreshSearcher();
     }
     
-    private void touchIndex() throws RuntimeException {
+    private void touchIndex() {
         try {
             indexWriter.commit();
         } catch (Exception e) {
@@ -165,11 +165,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         }
     }
     
-    private void optimizeIndex() throws RuntimeException {
+    private void optimizeIndex()  {
         try {
             indexWriter.optimize();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            Throwables.propagate(e);
         } finally {
             commitWriter();
         }
