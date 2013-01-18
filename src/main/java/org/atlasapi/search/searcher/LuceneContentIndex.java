@@ -167,7 +167,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     private void optimizeIndex()  {
         try {
+            log.trace("Optimizing index");
             indexWriter.optimize();
+            log.trace("Done optimizing index");
         } catch (Exception e) {
             Throwables.propagate(e);
         } finally {
@@ -177,7 +179,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     private void commitWriter() {
         try {
+            log.trace("Commiting writer");
             indexWriter.commit();
+            log.trace("Done commiting writer");
         } catch (Exception e) {
             Throwables.propagate(e);
         } 
