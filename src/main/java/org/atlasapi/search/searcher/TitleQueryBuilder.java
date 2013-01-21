@@ -56,9 +56,16 @@ public class TitleQueryBuilder {
 		List<String> tokens = tokens(queryString);
 		
 		if (shouldUsePrefixSearch(tokens)) {
-			return prefixSearch(Iterables.getOnlyElement(tokens));
+		    String token = Iterables.getOnlyElement(tokens);
+		    BooleanQuery query = new BooleanQuery();
+		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_TITLE_FLATTENED), Occur.SHOULD);
+		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED), Occur.SHOULD);
+		    return query;
 		} else {
-			return fuzzyTermSearch(flatten(queryString), tokens);
+		    BooleanQuery query = new BooleanQuery();
+		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTENT_TITLE, LuceneContentIndex.FIELD_TITLE_FLATTENED), Occur.SHOULD);
+		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTAINER_CONTENT_TITLE, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED), Occur.SHOULD);
+			return query;
 		}
 	}
 
@@ -66,31 +73,31 @@ public class TitleQueryBuilder {
 		return tokens.size() == 1 && Iterables.getOnlyElement(tokens).length() <= USE_PREFIX_SEARCH_UP_TO;
 	}
 
-	private Query prefixSearch(String token) {
+	private Query prefixSearch(String token, String indexField) {
 	    BooleanQuery withExpansions = new BooleanQuery(true);
 	    withExpansions.setMinimumNumberShouldMatch(1);
-		withExpansions.add(prefixQuery(token), Occur.SHOULD);
+		withExpansions.add(prefixQuery(token, indexField), Occur.SHOULD);
 
 		String expanded = EXPANSIONS.get(token);
 		if (expanded != null) {
-		    withExpansions.add(prefixQuery(expanded), Occur.SHOULD);
+		    withExpansions.add(prefixQuery(expanded, indexField), Occur.SHOULD);
 		}
 	    return withExpansions;
 	}
 
-    private PrefixQuery prefixQuery(String token) {
+    private PrefixQuery prefixQuery(String token, String indexField) {
         PrefixQuery query = new PrefixQuery(new Term(LuceneContentIndex.FIELD_TITLE_FLATTENED, token));
         query.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_FILTER_REWRITE);
         return query;
     }
 
-	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens) {
+	private BooleanQuery fuzzyTermSearch(String flattenedQuery, List<String> tokens, String fullTitleIndexField, String flattenedTitleIndexField) {
 		BooleanQuery queryForTerms = new BooleanQuery();
 
 		for(String token : tokens) {
 			BooleanQuery queryForThisTerm = new BooleanQuery();
 			queryForThisTerm.setMinimumNumberShouldMatch(1);
-			Term term = new Term(LuceneContentIndex.FIELD_CONTENT_TITLE, token);
+			Term term = new Term(fullTitleIndexField, token);
 			
 			PrefixQuery prefix = new PrefixQuery(term);
 			prefix.setBoost(20);
@@ -105,7 +112,7 @@ public class TitleQueryBuilder {
 		either.add(queryForTerms, Occur.SHOULD);
 		either.add(fuzzyWithoutSpaces(flattenedQuery), Occur.SHOULD);
 		
-		Query prefix = prefixSearch(flattenedQuery);
+		Query prefix = prefixSearch(flattenedQuery, flattenedTitleIndexField);
 		prefix.setBoost(50);
 		either.add(prefix, Occur.SHOULD);
 		

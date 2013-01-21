@@ -27,6 +27,7 @@ import junit.framework.TestCase;
 
 import org.atlasapi.media.entity.Brand;
 import org.atlasapi.media.entity.Described;
+import org.atlasapi.media.entity.Episode;
 import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
@@ -37,6 +38,7 @@ import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -46,6 +48,7 @@ import com.google.common.io.Files;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import java.io.File;
+
 import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentIndexTest extends TestCase {
@@ -96,16 +99,17 @@ public class LuceneContentIndexTest extends TestCase {
             .withVersions(broadcast().buildInVersion()).build();
     
     private final Brand theWire = brand("/the-wire", "The Wire");
-    private final Item theWireItem = complexItem().withUri("/items/the-wire/").withBrand(theWire).withTitle("The Wire").withVersions(broadcast().buildInVersion()).build();
+    
+    private final Item theWireItem = complexItem().withUri("/items/the-wire/").withBrand(theWire).withTitle("Sentencing").withVersions(broadcast().buildInVersion()).build();
 
     private final Item wiringLights = complexItem().withUri("/items/wiring-lights").withTitle("Wiring Lights").withVersions(broadcast().buildInVersion()).build();
     
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
-            euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire);
+           euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire);
 
-    private final List<Item> items = Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
-            theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-            brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights);
+    private final List<Item> items =  Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
+           theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
+           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
     private LuceneContentIndex searcher;
@@ -119,7 +123,7 @@ public class LuceneContentIndexTest extends TestCase {
         luceneDir.deleteOnExit();
         contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
         searcher = new LuceneContentIndex(luceneDir, contentResolver);
-        searcher.contentChange(allContent);
+        searcher.contentChange(Iterables.<Described>concat(brands, Iterables.filter(items, IS_TOP_LEVEL_ITEM)));
         searcher.afterContentChange();
     }
 
@@ -180,9 +184,14 @@ public class LuceneContentIndexTest extends TestCase {
         checkNot(searcher.search(specializedTitle("aprentice", Specialization.TV)), theApprentice);
         check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);
     }
+    
+    public void testFindingEpisodeByBrandOrEpisodeTitle() throws Exception {
+        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
+    }
 
     public void testLimitingToPublishers() throws Exception {
-        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevel(true).build()), eastenders, eastendersWeddings, politicsEast);
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()));
 
         Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
@@ -203,9 +212,9 @@ public class LuceneContentIndexTest extends TestCase {
     }
 
     public void testLimitAndOffset() throws Exception {
-        check(searcher.search((SearchQuery.builder("eas").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build())), eastenders, eastendersWeddings, politicsEast);
-        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.limitedTo(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build())), eastenders, eastendersWeddings);
-        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.offsetBy(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build())), politicsEast);
+        check(searcher.search((SearchQuery.builder("eas").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.limitedTo(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), eastenders, eastendersWeddings);
+        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.offsetBy(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), politicsEast);
     }
 
     public void testBroadcastLocationWeighting() {
@@ -232,7 +241,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(null).build()), theWire, theWireItem, wiringLights);
+            .withTitleWeighting(1.0f).isTopLevel(null).build()), theWire, wiringLights, theWireItem);
     }
     
     public void testTopLevelTypes() {
@@ -243,7 +252,7 @@ public class LuceneContentIndexTest extends TestCase {
     }
     
     protected static SearchQuery title(String term) {
-        return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build();
+        return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build();
     }
     
     protected static SearchQuery specializedTitle(String term, Specialization specialization) {
@@ -253,7 +262,7 @@ public class LuceneContentIndexTest extends TestCase {
 
     protected static SearchQuery currentWeighted(String term) {
         return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).withBroadcastWeighting(0.2f).withCatchupWeighting(0.2f).build();
+            .withTitleWeighting(1.0f).withBroadcastWeighting(0.2f).withCatchupWeighting(0.2f).isTopLevel(true).build();
     }
 
     protected static void check(SearchResults result, Identified... content) {
@@ -296,4 +305,13 @@ public class LuceneContentIndexTest extends TestCase {
         }
         return uris;
     }
+    
+    private static Predicate<Item> IS_TOP_LEVEL_ITEM = new Predicate<Item>() {
+
+        @Override
+        public boolean apply(Item input) {
+            return input.getContainer() == null;
+        }
+        
+    };
 }

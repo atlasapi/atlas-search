@@ -46,7 +46,7 @@ public class ContentBootstrapper {
     private PeopleLister[] peopleListers;
 
     public ContentBootstrapper() {
-        this(defaultCriteria().forContent(ContentCategory.ALL.asList()).build());
+        this(defaultCriteria().forContent(ContentCategory.TOP_LEVEL_CONTENT.asList()).build());
     }
 
     public ContentBootstrapper(ContentListingCriteria criteria) {

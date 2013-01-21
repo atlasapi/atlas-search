@@ -67,6 +67,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -90,6 +91,8 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private static final Logger log = LoggerFactory.getLogger(LuceneContentIndex.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
     static final String FIELD_CONTENT_TITLE = "title";
+    static final String FIELD_CONTAINER_TITLE_FLATTENED = "container-title-flattened";
+    static final String FIELD_CONTAINER_CONTENT_TITLE = "container-title";
     static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
     static final String FIELD_CONTENT_PUBLISHER = "publisher";
     private static final String FIELD_CONTENT_URI = "contentUri";
@@ -141,12 +144,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         try {
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
                 try {
-                    Document doc = asDocument(content);
-                    if (doc != null) {
-                        indexWriter.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
-                    } else {
-                        log.info("Content with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
-                    }
+                    process(content);
                 }
                 catch (Exception e) {
                     log.error("Failed to index document " + content.getCanonicalUri(), e);
@@ -193,23 +191,67 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         } 
     }
     
-    private Document asDocument(Described content) {
+    private void process(Described content) throws CorruptIndexException, IOException {
+        if(content instanceof Container) {
+            Container container = (Container) content;
+            List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
+            Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
+            index(content, Optional.of(items), Optional.<Container>absent());
+            
+            for(Item child : items) {
+                index(child, Optional.<Iterable<Item>>absent(), Optional.of(container));
+            }
+        } else {
+            index(content, Optional.<Iterable<Item>>absent(), Optional.<Container>absent());
+        }
+    }
+    
+    private void index(Described content, Optional<Iterable<Item>> children, Optional<Container> parent) throws CorruptIndexException, IOException {
+        Document doc = asDocument(content, children, parent);
+        if (doc != null) {
+            indexWriter.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
+        } else {
+            log.info("Content with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
+        }
+    }
+    
+    private Document asDocument(Described content, Optional<Iterable<Item>> children, Optional<Container> parent) {
         if (Strings.isNullOrEmpty(content.getCanonicalUri()) || Strings.isNullOrEmpty(content.getTitle()) || content.getPublisher() == null) {
             return null;
         }
         Document doc = new Document();
+        
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES, Field.Index.NOT_ANALYZED));
+        
+        if(parent.isPresent()) {
+            Container container = parent.get();
+            if(!Strings.isNullOrEmpty(container.getTitle())) {
+                doc.add(new Field(FIELD_CONTAINER_CONTENT_TITLE, container.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
+                doc.add(new Field(FIELD_CONTAINER_TITLE_FLATTENED, titleQueryBuilder.flatten(container.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
+            }
+        }
         if (content.getSpecialization() != null) {
             doc.add(new Field(FIELD_CONTENT_SPECIALIZATION, content.getSpecialization().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
         }
         if (content.getPublisher() != null) {
             doc.add(new Field(FIELD_CONTENT_PUBLISHER, content.getPublisher().toString(), Field.Store.NO, Field.Index.NOT_ANALYZED));
         }
-        if (!addBroadcastAndAvailabilityFields(content, doc)) {
+        
+        boolean availabilityFieldsAdded = false;
+        if(content instanceof Item) {
+            availabilityFieldsAdded = addBroadcastAndAvailabilityFields((Item)content, doc);
+        } else if (content instanceof Song){
+            availabilityFieldsAdded = addBroadcastAndAvailabilityFields((Song)content, doc);
+        } else if (content instanceof Container) {
+            availabilityFieldsAdded = addBroadcastAndAvailabilityFields((Container)content, children.get(), doc);
+        }
+        
+        if(!availabilityFieldsAdded) {
             return null;
         }
+        
         boolean container = content instanceof Container;
         doc.add(new Field(FIELD_CONTENT_IS_CONTAINER, container ? TRUE : FALSE, Field.Store.NO, Field.Index.NOT_ANALYZED));
         boolean topLevel = true;
@@ -222,40 +264,37 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         return doc;
     }
     
-    private boolean addBroadcastAndAvailabilityFields(Described content, Document doc) {
+    private boolean addBroadcastAndAvailabilityFields(Song song, Document doc) {
+        return true;
+    }
+    
+    private boolean addBroadcastAndAvailabilityFields(Item item, Document doc) {
         Timestamp now = clock.timestamp();
+        if (item.isAvailable()) {
+            doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+        }
+        int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
         
-        if (content instanceof Song) {
-            return true;
-        } else if (content instanceof Item) {
-            Item item = (Item) content;
-            if (item.isAvailable()) {
+        if (item instanceof Film) {
+            // Films should pretend to be at most 30 days old 
+            hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
+        }
+        
+        doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
+        return true;
+    }
+    
+    private boolean addBroadcastAndAvailabilityFields(Container container, Iterable<Item> children, Document doc) {
+        Timestamp now = clock.timestamp();
+        if (!container.getChildRefs().isEmpty()) {
+
+            if (haveAvailable(children)) {
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
-            int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
             
-            if (content instanceof Film) {
-                // Films should pretend to be at most 30 days old 
-                hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
-            }
-            
-            doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
+            int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(children, now);
+            doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
             return true;
-            
-        } else if (content instanceof Container) {
-            Container container = (Container) content;
-            if (!container.getChildRefs().isEmpty()) {
-                List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
-                
-                Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
-                if (haveAvailable(items)) {
-                    doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
-                }
-                
-                int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(items, now);
-                doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
-                return true;
-            }
         }
         return false;
     }
