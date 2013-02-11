@@ -76,9 +76,9 @@ public class ContentBootstrapper {
                 Iterator<Content> content = lister.listContent(criteria);
                 Iterator<List<Content>> partitionedContent = Iterators.partition(content, 100);
                 while (partitionedContent.hasNext()) {
-                    List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
+                    Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
                     listener.contentChange(partition);
-                    contentProcessed += partition.size();
+                    contentProcessed += Iterables.size(partition);
                     if (log.isInfoEnabled()) {
                         log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
                     }

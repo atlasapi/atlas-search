@@ -140,10 +140,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public void contentChange(Iterable<? extends Described> contents) {
-        
+        log.trace("Processing changed content");
         try {
             for (Described content : Iterables.filter(contents, FILTER_SEARCHABLE_CONTENT)) {
                 try {
+                    log.trace("Processing content {}", content.getCanonicalUri());
                     process(content);
                 }
                 catch (Exception e) {
@@ -209,7 +210,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private void index(Described content, Optional<Iterable<Item>> children, Optional<Container> parent) throws CorruptIndexException, IOException {
         Document doc = asDocument(content, children, parent);
         if (doc != null) {
+            log.trace("Updating document");
             indexWriter.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
+            log.trace("Done updating document");
         } else {
             log.info("Content with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
         }
@@ -269,7 +272,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private boolean addBroadcastAndAvailabilityFields(Item item, Document doc) {
+        log.trace("Adding broadcast and availability fields for item {}", item.getCanonicalUri());
         Timestamp now = clock.timestamp();
+
         if (item.isAvailable()) {
             doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
         }
@@ -285,6 +290,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
     
     private boolean addBroadcastAndAvailabilityFields(Container container, Iterable<Item> children, Document doc) {
+        log.trace("Adding broadcast and availability fields for container {}", container.getCanonicalUri());
         Timestamp now = clock.timestamp();
         if (!container.getChildRefs().isEmpty()) {
 

@@ -1,5 +1,7 @@
 package org.atlasapi.search.loader;
 
+import static org.hamcrest.Matchers.hasItems;
+
 import java.util.Iterator;
 import java.util.List;
 
@@ -54,8 +56,8 @@ public class ContentBootstrapperTest  {
         
         context.checking(new Expectations() {{
             one(listener).beforeContentChange();
-            one(listener).contentChange(ImmutableList.of(item1, item2));
-            one(listener).contentChange(ImmutableList.of(item3));
+            one(listener).contentChange(with(hasItems(item1, item2)));
+            one(listener).contentChange(with(hasItems(item3)));
             one(listener).afterContentChange();
         }});
         
