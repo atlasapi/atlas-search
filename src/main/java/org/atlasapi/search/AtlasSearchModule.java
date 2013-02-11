@@ -53,6 +53,7 @@ public class AtlasSearchModule extends WebAwareModule {
     private final String luceneDir = Configurer.get("lucene.contentDir").get();
     private final String luceneIndexAtStartup = Configurer.get("lucene.indexAtStartup", "").get();
 	private final String enablePeople = Configurer.get("people.enabled").get();
+	private final String enableMusic = Configurer.get("music.enabled").get();
 	private final String enableCassandra = Configurer.get("cassandra.enabled").get();
 
 	@Override
@@ -71,8 +72,11 @@ public class AtlasSearchModule extends WebAwareModule {
             probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)));
         }
         
-	    ReloadingContentBootstrapper musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
-	    probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper, Duration.standardHours(24))); 
+        ReloadingContentBootstrapper musicBootStrapper = null;
+        if(Boolean.valueOf(enableMusic)) {
+            musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
+            probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper, Duration.standardHours(24)));
+        }
         
 		bind("/system/health", new HealthController(probes.build()));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
@@ -83,7 +87,9 @@ public class AtlasSearchModule extends WebAwareModule {
 		    cassandraBootstrapper.start();
 		}
 		
-        musicBootStrapper.start();
+		if(musicBootStrapper != null) {
+		    musicBootStrapper.start();
+		}
 	}
 	
     @Bean
