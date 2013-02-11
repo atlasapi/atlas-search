@@ -25,6 +25,7 @@ import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
+import org.apache.lucene.search.DisjunctionMaxQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.PrefixFilter;
@@ -57,14 +58,14 @@ public class TitleQueryBuilder {
 		
 		if (shouldUsePrefixSearch(tokens)) {
 		    String token = Iterables.getOnlyElement(tokens);
-		    BooleanQuery query = new BooleanQuery();
-		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_TITLE_FLATTENED), Occur.SHOULD);
-		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED), Occur.SHOULD);
+		    DisjunctionMaxQuery query = new DisjunctionMaxQuery(0);
+		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_TITLE_FLATTENED));
+		    query.add(prefixSearch(token, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED));
 		    return query;
 		} else {
-		    BooleanQuery query = new BooleanQuery();
-		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTENT_TITLE, LuceneContentIndex.FIELD_TITLE_FLATTENED), Occur.SHOULD);
-		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTAINER_CONTENT_TITLE, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED), Occur.SHOULD);
+		    DisjunctionMaxQuery query = new DisjunctionMaxQuery(0);
+		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTENT_TITLE, LuceneContentIndex.FIELD_TITLE_FLATTENED));
+		    query.add(fuzzyTermSearch(flatten(queryString), tokens, LuceneContentIndex.FIELD_CONTAINER_CONTENT_TITLE, LuceneContentIndex.FIELD_CONTAINER_TITLE_FLATTENED));
 			return query;
 		}
 	}
