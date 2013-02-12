@@ -396,9 +396,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, TRUE));
             f.add(new FilterClause(typeField, Occur.MUST));
         }
-        if (q.topLevelOnly() != null) {
+        if (q.topLevelOnly() != null && q.topLevelOnly()) {
             TermsFilter typeField = new TermsFilter();
-            typeField.addTerm(new Term(FIELD_CONTENT_IS_TOP_LEVEL, q.topLevelOnly() ? TRUE : FALSE));
+            typeField.addTerm(new Term(FIELD_CONTENT_IS_TOP_LEVEL, TRUE));
             f.add(new FilterClause(typeField, Occur.MUST));
         }
         return f;
