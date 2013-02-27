@@ -24,7 +24,6 @@ import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
 import java.util.Arrays;
-import java.util.Set;
 import org.atlasapi.media.entity.Specialization;
 
 public class SearchServlet extends HttpServlet {
@@ -88,16 +87,32 @@ public class SearchServlet extends HttpServlet {
         } else {
             specializations = Arrays.asList(Specialization.FILM, Specialization.TV, Specialization.RADIO);
         }
+        SearchQuery query = SearchQuery.builder(title)
+            .withSelection(SELECTION_BUILDER.build(request))
+            .withSpecializations(specializations)
+            .withPublishers(publishers)
+            .withTitleWeighting(titleWeighting.requireValue())
+            .withBroadcastWeighting(broadcastWeighting.requireValue())
+            .withCatchupWeighting(catchupWeighting.requireValue())
+            .withType(request.getParameter("type"))
+            .isTopLevelOnly(topLevelOnly(request))
+            .build();
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
             ServletOutputStream outputStream = response.getOutputStream();
-            outputStream.write(searcher.debug(
-                    new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(), catchupWeighting.requireValue())).getBytes());
+            outputStream.write(searcher.debug(query).getBytes());
         } else {
-            view.render(searcher.search(new SearchQuery(title, SELECTION_BUILDER.build(request), specializations, publishers, titleWeighting.requireValue(), broadcastWeighting.requireValue(),
-                    catchupWeighting.requireValue())), request, response);
+            view.render(searcher.search(query), request, response);
         }
 
+    }
+
+    private Boolean topLevelOnly(HttpServletRequest request) {
+        String param = request.getParameter("topLevelOnly");
+        if (param == null || "true".equals(param)) {
+            return true;
+        }
+        return false;
     }
 
     private Maybe<Float> getFloatParameter(String parameterName, HttpServletRequest request, HttpServletResponse response) throws IOException {

@@ -33,9 +33,9 @@ import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 
 public class ContentBootstrapper {
 
@@ -47,7 +47,7 @@ public class ContentBootstrapper {
     private PeopleLister[] peopleListers;
 
     public ContentBootstrapper() {
-        this(defaultCriteria().forContent(ImmutableList.copyOf(ContentCategory.TOP_LEVEL_CONTENT)).build());
+        this(defaultCriteria().forContent(ImmutableSet.of(ContentCategory.CONTAINER, ContentCategory.TOP_LEVEL_ITEM)).build());
     }
 
     public ContentBootstrapper(ContentListingCriteria criteria) {
@@ -75,13 +75,17 @@ public class ContentBootstrapper {
             for (ContentLister lister : contentListers) {
 
                 Iterator<Content> content = lister.listContent(criteria);
-                Iterator<List<Content>> partitionedContent = Iterators.paddedPartition(content, 100);
+                Iterator<List<Content>> partitionedContent = Iterators.partition(content, 100);
                 while (partitionedContent.hasNext()) {
-                    List<Content> partition = ImmutableList.copyOf(Iterables.filter(partitionedContent.next(), notNull()));
-                    listener.contentChange(partition);
-                    contentProcessed += partition.size();
-                    if (log.isInfoEnabled()) {
-                        log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                    try {
+                        Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
+                        listener.contentChange(partition);
+                        contentProcessed += Iterables.size(partition);
+                        if (log.isInfoEnabled()) {
+                            log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to process partition, continuing to next", e);
                     }
                 }
             }
