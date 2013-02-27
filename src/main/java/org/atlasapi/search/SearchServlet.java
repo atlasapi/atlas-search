@@ -95,7 +95,7 @@ public class SearchServlet extends HttpServlet {
             .withBroadcastWeighting(broadcastWeighting.requireValue())
             .withCatchupWeighting(catchupWeighting.requireValue())
             .withType(request.getParameter("type"))
-            .isTopLevel(topLevelOnly(request))
+            .isTopLevelOnly(topLevelOnly(request))
             .build();
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());

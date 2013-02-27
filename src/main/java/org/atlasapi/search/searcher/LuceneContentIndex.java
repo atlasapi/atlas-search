@@ -45,7 +45,6 @@ import org.apache.lucene.search.function.IntFieldSource;
 import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
@@ -369,10 +368,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         // Title:
         Query titleQuery = titleQueryBuilder.build(q.getTerm());
         titleQuery.setBoost(q.getTitleWeighting());
-        // Filtered by specialization:
-        if (isFiltered(q)) {
-            Filter filter = titleFilterFor(q);
-            titleQuery = new FilteredQuery(titleQuery, filter);
+        // Apply filters
+        Optional<BooleanFilter> filter = filtersFor(q);
+        if(filter.isPresent()) {
+            titleQuery = new FilteredQuery(titleQuery, filter.get());
         }
         query.add(titleQuery, Occur.MUST);
         // Availability:
@@ -388,31 +387,37 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         }
     }
 
-    private Filter titleFilterFor(SearchQuery q) {
-        BooleanFilter f = new BooleanFilter();
+    private Optional<BooleanFilter> filtersFor(SearchQuery q) {
+        List<FilterClause> filters = Lists.newArrayList();
+        
         if (!q.getIncludedSpecializations().isEmpty()) {
-            f.add(new FilterClause(getSpecializationFilter(q.getIncludedSpecializations()), Occur.MUST));
+            filters.add(new FilterClause(getSpecializationFilter(q.getIncludedSpecializations()), Occur.MUST));            
         }
         if ("item".equals(q.type())) {
             TermsFilter typeField = new TermsFilter();
             typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, FALSE));
-            f.add(new FilterClause(typeField, Occur.MUST));
+            filters.add(new FilterClause(typeField, Occur.MUST));
         } else if ("container".equals(q.type())) {
             TermsFilter typeField = new TermsFilter();
             typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, TRUE));
-            f.add(new FilterClause(typeField, Occur.MUST));
+            filters.add(new FilterClause(typeField, Occur.MUST));
         }
         if (q.topLevelOnly() != null && q.topLevelOnly()) {
             TermsFilter typeField = new TermsFilter();
             typeField.addTerm(new Term(FIELD_CONTENT_IS_TOP_LEVEL, TRUE));
-            f.add(new FilterClause(typeField, Occur.MUST));
+            filters.add(new FilterClause(typeField, Occur.MUST));
         }
-        return f;
+        if(filters.isEmpty()) {
+            return Optional.absent();
+        }
+        
+        BooleanFilter f = new BooleanFilter();
+        for(FilterClause filter : filters) {
+            f.add(filter);
+        }
+        return Optional.of(f);
     }
 
-    private boolean isFiltered(SearchQuery q) {
-        return !q.getIncludedSpecializations().isEmpty() || !Strings.isNullOrEmpty(q.type()) || q.topLevelOnly() != null;
-    }
     private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
     
     private static int hourOf(long millis) {

@@ -186,12 +186,15 @@ public class LuceneContentIndexTest extends TestCase {
     }
     
     public void testFindingEpisodeByBrandOrEpisodeTitle() throws Exception {
-        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
-        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
+        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWire, theWireItem);
+        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWireItem);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWireItem);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()));
     }
 
     public void testLimitingToPublishers() throws Exception {
-        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevel(true).build()), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), eastenders, eastendersWeddings, politicsEast);
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()));
 
         Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
@@ -212,9 +215,9 @@ public class LuceneContentIndexTest extends TestCase {
     }
 
     public void testLimitAndOffset() throws Exception {
-        check(searcher.search((SearchQuery.builder("eas").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), eastenders, eastendersWeddings, politicsEast);
-        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.limitedTo(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), eastenders, eastendersWeddings);
-        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.offsetBy(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build())), politicsEast);
+        check(searcher.search((SearchQuery.builder("eas").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.limitedTo(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), eastenders, eastendersWeddings);
+        check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.offsetBy(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), politicsEast);
     }
 
     public void testBroadcastLocationWeighting() {
@@ -237,22 +240,22 @@ public class LuceneContentIndexTest extends TestCase {
     
     public void testTopLevelOnlyFlag() {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(true).build()), theWire, wiringLights);
+            .withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire, wiringLights);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(false).build()), theWireItem);
+            .withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWire, wiringLights, theWireItem);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(null).build()), theWire, wiringLights, theWireItem);
+            .withTitleWeighting(1.0f).isTopLevelOnly(null).build()), theWire, wiringLights, theWireItem);
     }
     
     public void testTopLevelTypes() {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(true).withType("item").build()), wiringLights);
+            .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("item").build()), wiringLights);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevel(true).withType("container").build()), theWire);
+            .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("container").build()), theWire);
     }
     
     protected static SearchQuery title(String term) {
-        return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevel(true).build();
+        return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build();
     }
     
     protected static SearchQuery specializedTitle(String term, Specialization specialization) {
@@ -262,7 +265,7 @@ public class LuceneContentIndexTest extends TestCase {
 
     protected static SearchQuery currentWeighted(String term) {
         return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).withBroadcastWeighting(0.2f).withCatchupWeighting(0.2f).isTopLevel(true).build();
+            .withTitleWeighting(1.0f).withBroadcastWeighting(0.2f).withCatchupWeighting(0.2f).isTopLevelOnly(true).build();
     }
 
     protected static void check(SearchResults result, Identified... content) {
