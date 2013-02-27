@@ -33,6 +33,7 @@ import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.search.searcher.ContentChangeListener;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
@@ -46,7 +47,7 @@ public class ContentBootstrapper {
     private PeopleLister[] peopleListers;
 
     public ContentBootstrapper() {
-        this(defaultCriteria().forContent(ContentCategory.TOP_LEVEL_CONTENT.asList()).build());
+        this(defaultCriteria().forContent(ImmutableSet.of(ContentCategory.CONTAINER, ContentCategory.TOP_LEVEL_ITEM)).build());
     }
 
     public ContentBootstrapper(ContentListingCriteria criteria) {
@@ -76,11 +77,15 @@ public class ContentBootstrapper {
                 Iterator<Content> content = lister.listContent(criteria);
                 Iterator<List<Content>> partitionedContent = Iterators.partition(content, 100);
                 while (partitionedContent.hasNext()) {
-                    Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
-                    listener.contentChange(partition);
-                    contentProcessed += Iterables.size(partition);
-                    if (log.isInfoEnabled()) {
-                        log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                    try {
+                        Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
+                        listener.contentChange(partition);
+                        contentProcessed += Iterables.size(partition);
+                        if (log.isInfoEnabled()) {
+                            log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to process partition, continuing to next", e);
                     }
                 }
             }
