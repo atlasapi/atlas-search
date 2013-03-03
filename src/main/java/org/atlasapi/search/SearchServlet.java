@@ -96,6 +96,7 @@ public class SearchServlet extends HttpServlet {
             .withCatchupWeighting(catchupWeighting.requireValue())
             .withType(request.getParameter("type"))
             .isTopLevelOnly(topLevelOnly(request))
+            .withCurrentBroadcastsOnly(currentBroadcastsOnly(request))
             .build();
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
@@ -113,6 +114,14 @@ public class SearchServlet extends HttpServlet {
             return true;
         }
         return false;
+    }
+    
+    private Boolean currentBroadcastsOnly(HttpServletRequest request) {
+        String param = request.getParameter("currentBroadcastsOnly");
+        if (param == null || "false".equals(param)) {
+            return false;
+        }
+        return true;
     }
 
     private Maybe<Float> getFloatParameter(String parameterName, HttpServletRequest request, HttpServletResponse response) throws IOException {
