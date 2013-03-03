@@ -60,6 +60,7 @@ import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
+import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,7 @@ import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
+    private static final int HOURS_IN_EIGHT_DAYS = 24 * 8;
     private static final int MAX_RESULTS = 1000;
     private static final Logger log = LoggerFactory.getLogger(LuceneContentIndex.class);
     static final String FIELD_TITLE_FLATTENED = "title-flattened";
@@ -94,6 +96,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     static final String FIELD_CONTAINER_CONTENT_TITLE = "container-title";
     static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
     static final String FIELD_CONTENT_PUBLISHER = "publisher";
+    static final String FIELD_CURRENT_BROADCASTS = "current-broadcasts";
     private static final String FIELD_CONTENT_URI = "contentUri";
     private static final String FIELD_AVAILABLE = "available";
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
@@ -277,13 +280,16 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         if (item.isAvailable()) {
             doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
         }
-        int hourOfClosestBroadcast = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
+        Optional<DateTime> nearestBroadcastStart = hourOfClosestBroadcast(item.flattenBroadcasts(), now);
+        int hourOfClosestBroadcast = hourOf(nearestBroadcastStart);
         
         if (item instanceof Film) {
             // Films should pretend to be at most 30 days old 
             hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
         }
         
+        boolean currentBroadcasts = Math.abs(hourOf(clock.timestamp()) - hourOfClosestBroadcast) < HOURS_IN_EIGHT_DAYS; 
+        doc.add(new Field(FIELD_CURRENT_BROADCASTS, currentBroadcasts ? TRUE : FALSE, Field.Store.NO, Field.Index.NOT_ANALYZED));
         doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
         return true;
     }
@@ -297,21 +303,21 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                 doc.add(new Field(FIELD_AVAILABLE, TRUE, Field.Store.NO, Field.Index.NOT_ANALYZED));
             }
             
-            int hourOfClosestBroadcastForItems = hourOfClosestBroadcastForItems(children, now);
+            int hourOfClosestBroadcastForItems = hourOf(hourOfClosestBroadcastForItems(children, now));
             doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
             return true;
         }
         return false;
     }
     
-    private int hourOfClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
+    private Optional<DateTime> hourOfClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
         if (Iterables.isEmpty(items)) {
-            return 0;
+            return Optional.<DateTime>absent();
         }
         return hourOfClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
     }
     
-    private int hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
+    private Optional<DateTime> hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
         Iterable<Broadcast> publishedBroadcasts = Iterables.filter(broadcasts, new Predicate<Broadcast>() {
             
             @Override
@@ -321,14 +327,14 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         });
         
         if (Iterables.isEmpty(publishedBroadcasts)) {
-            return 0;
+            return Optional.<DateTime>absent();
         }
         
         Broadcast closest = sinceBroadcast(now).min(publishedBroadcasts);
         if (closest.getTransmissionTime() == null) {
-            return 0;
+            return Optional.<DateTime>absent();
         }
-        return hourOf(Timestamp.of(closest.getTransmissionTime()));
+        return Optional.of(closest.getTransmissionTime());
     }
     
     private Ordering<Broadcast> sinceBroadcast(final Timestamp now) {
@@ -407,6 +413,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             typeField.addTerm(new Term(FIELD_CONTENT_IS_TOP_LEVEL, TRUE));
             filters.add(new FilterClause(typeField, Occur.MUST));
         }
+        if(q.currentBroadcastsOnly() != null && q.currentBroadcastsOnly()) {
+            TermsFilter typeField = new TermsFilter();
+            typeField.addTerm(new Term(FIELD_CURRENT_BROADCASTS, TRUE));
+            filters.add(new FilterClause(typeField, Occur.MUST));
+        }
         if(filters.isEmpty()) {
             return Optional.absent();
         }
@@ -420,12 +431,19 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
 
     private final static long MILLIS_IN_HOUR = Duration.standardHours(1).getMillis();
     
-    private static int hourOf(long millis) {
-        return (int) (millis / MILLIS_IN_HOUR);
+    private static int hourOf(Optional<DateTime> dateTime) {
+        if(!dateTime.isPresent()) {
+            return 0;
+        }
+        return hourOf(dateTime.get());
+    }
+    
+    private static int hourOf(DateTime dateTime) {        
+        return (int) (dateTime.getMillis() / MILLIS_IN_HOUR);
     }
     
     private static int hourOf(Timestamp ts) {
-        return hourOf(ts.millis());
+        return hourOf(ts.toDateTimeUTC());
     }
     
     private Filter getPublisherFilter(Set<Publisher> includedPublishers) {

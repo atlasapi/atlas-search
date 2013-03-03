@@ -104,12 +104,22 @@ public class LuceneContentIndexTest extends TestCase {
 
     private final Item wiringLights = complexItem().withUri("/items/wiring-lights").withTitle("Wiring Lights").withVersions(broadcast().buildInVersion()).build();
     
+    private final Item blackMirrorVeryOld = complexItem().withTitle("Black Mirror").withUri("/item/blackmirror-very-old")
+            .withVersions(version().withBroadcasts(broadcast().withStartTime(new SystemClock().now().minus(Duration.standardDays(9))).build()).build()).build();
+    
+    private final Item blackMirrorLastWeek = complexItem().withTitle("Black Mirror").withUri("/item/blackmirror-last-week")
+            .withVersions(version().withBroadcasts(broadcast().withStartTime(new SystemClock().now().minus(Duration.standardDays(6))).build()).build()).build();
+    
+    private final Item blackMirrorNextWeek = complexItem().withTitle("Black Mirror").withUri("/item/blackmirror-next-week")
+            .withVersions(version().withBroadcasts(broadcast().withStartTime(new SystemClock().now().plus(Duration.standardDays(2))).build()).build()).build();
+    
+    
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
            euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire);
 
     private final List<Item> items =  Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
            theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights);
+           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights, blackMirrorVeryOld, blackMirrorLastWeek, blackMirrorNextWeek);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
     private LuceneContentIndex searcher;
@@ -252,6 +262,16 @@ public class LuceneContentIndexTest extends TestCase {
             .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("item").build()), wiringLights);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("container").build()), theWire);
+    }
+    
+    public void testCurrentBroadcastsOnlyFlag() {
+        check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
+            .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorNextWeek, blackMirrorLastWeek);
+        check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
+            .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(false).build()), blackMirrorNextWeek, blackMirrorLastWeek, blackMirrorVeryOld);
+        check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
+            .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).build()), blackMirrorNextWeek, blackMirrorLastWeek, blackMirrorVeryOld);
+            
     }
     
     protected static SearchQuery title(String term) {
