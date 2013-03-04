@@ -87,6 +87,8 @@ import org.atlasapi.media.entity.Specialization;
 
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
+    private static final float TOLERANCE = 0.000001f;
+    
     private static final int HOURS_IN_EIGHT_DAYS = 24 * 8;
     private static final int MAX_RESULTS = 1000;
     private static final Logger log = LoggerFactory.getLogger(LuceneContentIndex.class);
@@ -102,6 +104,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
     private static final String FIELD_CONTENT_IS_CONTAINER = "isContainer";
     private static final String FIELD_CONTENT_IS_TOP_LEVEL = "topLevel";
+    private static final String FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE = "priorityChannel";
     private static final int HOURS_IN_A_WEEK = 168;
     private static final String TRUE = "T";
     private static final String FALSE = "F";
@@ -112,9 +115,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private volatile Searcher contentSearcher;
     private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
     private final IndexWriter indexWriter;
+    private final BroadcastBooster broadcastBooster;
     
-    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver) {
+    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, BroadcastBooster broadcastBooster) {
         this.contentResolver = contentResolver;
+        this.broadcastBooster = broadcastBooster;
         try {
             this.contentDir = FSDirectory.open(luceneDir);
             this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
@@ -288,8 +293,12 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             hourOfClosestBroadcast = Math.max(hourOf(now.minus(Duration.standardDays(30))), hourOfClosestBroadcast);
         }
         
-        boolean currentBroadcasts = Math.abs(hourOf(clock.timestamp()) - hourOfClosestBroadcast) < HOURS_IN_EIGHT_DAYS; 
+        boolean currentBroadcasts = Math.abs(hourOf(clock.timestamp()) - hourOfClosestBroadcast) < HOURS_IN_EIGHT_DAYS;
         doc.add(new Field(FIELD_CURRENT_BROADCASTS, currentBroadcasts ? TRUE : FALSE, Field.Store.NO, Field.Index.NOT_ANALYZED));
+        
+        boolean priorityChannelBoost = shouldApplyPriorityChannelBoost(Item.FLATTEN_BROADCASTS.apply(item));
+        doc.add(new NumericField(FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE, Field.Store.YES, true).setIntValue(priorityChannelBoost ? 1 : 0));
+        
         doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcast));
         return true;
     }
@@ -305,6 +314,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             
             int hourOfClosestBroadcastForItems = hourOf(hourOfClosestBroadcastForItems(children, now));
             doc.add(new NumericField(FIELD_BROADCAST_HOUR_TS, Field.Store.YES, true).setIntValue(hourOfClosestBroadcastForItems));
+            
+            boolean priorityChannelBoost = shouldApplyPriorityChannelBoost(Iterables.concat(Iterables.transform(children, Item.FLATTEN_BROADCASTS)));
+            doc.add(new NumericField(FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE, Field.Store.YES, true).setIntValue(priorityChannelBoost ? 1 : 0));
+            
             return true;
         }
         return false;
@@ -315,6 +328,15 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             return Optional.<DateTime>absent();
         }
         return hourOfClosestBroadcast(Iterables.concat(Iterables.transform(items, Item.FLATTEN_BROADCASTS)), now);
+    }
+    
+    private boolean shouldApplyPriorityChannelBoost(Iterable<Broadcast> broadcasts) {
+        for(Broadcast broadcast : broadcasts) {
+            if(broadcastBooster.shouldBoost(broadcast)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private Optional<DateTime> hourOfClosestBroadcast(Iterable<Broadcast> broadcasts, Timestamp now) {
@@ -386,11 +408,14 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             query.add(availabilityQuery, Occur.SHOULD);
         }
         // Result:
+        Query retQuery;
         if (q.getBroadcastWeighting() != 0.0f) {
-            return new DistanceToBroadcastScore(query).withBroadcastWeight(q.getBroadcastWeighting());
+            retQuery = new DistanceToBroadcastScore(query).withBroadcastWeight(q.getBroadcastWeighting());
         } else {
-            return query;
+            retQuery = query;
         }
+        return new BooleanBoostScore(retQuery, FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE).withWeighting(q.getPriorityChannelBoost());
+        
     }
 
     private Optional<BooleanFilter> filtersFor(SearchQuery q) {
@@ -607,4 +632,32 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             return subQueryScore + (broadcastWeighting * broadcastScore * subQueryScore);
         }
     }
+    
+    private static class BooleanBoostScore extends CustomScoreQuery {
+        
+        private static final long serialVersionUID = 1L;
+        private float weighting;
+        
+        public BooleanBoostScore(Query subQuery, String field) {
+                super(subQuery, new ValueSourceQuery(new IntFieldSource(field)));
+                setStrict(true);
+        }
+        
+        public Query withWeighting(float weighting) {
+                this.weighting = weighting;
+                return this;
+        }
+        
+        @Override
+        public float customScore(int doc, float subQueryScore, float thisFieldValue) {
+                if(Math.abs(thisFieldValue - 1) < TOLERANCE) {
+                        return weighting * subQueryScore;
+                }
+                else {
+                        return subQueryScore;
+                }
+        }
+        
+    }
+
 }

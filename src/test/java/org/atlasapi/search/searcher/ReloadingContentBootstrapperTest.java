@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.atlasapi.media.entity.Brand;
+import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
@@ -74,7 +75,7 @@ public class ReloadingContentBootstrapperTest {
     public void setUp() throws Exception {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
-        searcher = new LuceneContentIndex(luceneDir, contentResolver);
+        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster());
         reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, true, 180, TimeUnit.MINUTES);
     }
 
@@ -96,5 +97,15 @@ public class ReloadingContentBootstrapperTest {
 
     private void testSearcher() {
         LuceneContentIndexTest.check(searcher.search(LuceneContentIndexTest.title("Aprentice")), theApprentice);
+    }
+    
+    // TODO: Add tests for this
+    private static class DummyBroadcastBooster implements BroadcastBooster {
+
+        @Override
+        public boolean shouldBoost(Broadcast broadcast) {
+            return false;
+        }
+        
     }
 }
