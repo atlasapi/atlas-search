@@ -1,16 +1,20 @@
 package org.atlasapi.search;
 
-
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 
+import org.atlasapi.media.channel.ChannelResolver;
+import org.atlasapi.media.channel.MongoChannelGroupStore;
+import org.atlasapi.media.channel.MongoChannelStore;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
+import org.atlasapi.search.searcher.BroadcastBooster;
+import org.atlasapi.search.searcher.ChannelGroupBroadcastChannelBooster;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
@@ -55,10 +59,12 @@ public class AtlasSearchModule extends WebAwareModule {
 	private final String enablePeople = Configurer.get("people.enabled").get();
 	private final String enableMusic = Configurer.get("music.enabled").get();
 	private final String enableCassandra = Configurer.get("cassandra.enabled").get();
+	private final String priorityChannelGroup = Configurer.get("priorityChannelGroup").get();
 
 	@Override
-	public void configure() {        
-        LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()));
+	public void configure() {
+	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
+        LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()), booster);
         
         Builder<HealthProbe> probes = ImmutableList.builder();
         
@@ -123,6 +129,14 @@ public class AtlasSearchModule extends WebAwareModule {
         return bootstrapper;
     }
 
+    public @Bean ChannelResolver channelResolver() {
+        return new MongoChannelStore(mongo(), mongoChannelGroupStore(), mongoChannelGroupStore());
+    }
+    
+    public @Bean MongoChannelGroupStore mongoChannelGroupStore() {
+        return new MongoChannelGroupStore(mongo());
+    }
+    
 	public @Bean DatabasedMongo mongo() {
 		try {
 			Mongo mongo = new Mongo(mongoHosts());

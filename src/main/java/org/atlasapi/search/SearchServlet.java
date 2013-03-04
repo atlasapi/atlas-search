@@ -61,6 +61,8 @@ public class SearchServlet extends HttpServlet {
         if (catchupWeighting.isNothing()) {
             return;
         }
+        
+        Maybe<Float> priorityChannelBoost = getFloatParameter("priorityChannelBoost", request, response);
 
         String publishersCsv = request.getParameter("publishers");
         if (Strings.isNullOrEmpty(publishersCsv)) {
@@ -97,6 +99,7 @@ public class SearchServlet extends HttpServlet {
             .withType(request.getParameter("type"))
             .isTopLevelOnly(topLevelOnly(request))
             .withCurrentBroadcastsOnly(currentBroadcastsOnly(request))
+            .withPriorityChannelBoost(priorityChannelBoost.valueOrDefault(1.0f))
             .build();
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());

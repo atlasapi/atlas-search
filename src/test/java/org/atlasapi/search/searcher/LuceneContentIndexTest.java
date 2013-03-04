@@ -22,12 +22,13 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import junit.framework.TestCase;
 
 import org.atlasapi.media.entity.Brand;
+import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Described;
-import org.atlasapi.media.entity.Episode;
 import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Person;
@@ -132,7 +133,7 @@ public class LuceneContentIndexTest extends TestCase {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
         contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
-        searcher = new LuceneContentIndex(luceneDir, contentResolver);
+        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(ImmutableSet.of(Iterables.getOnlyElement(Item.FLATTEN_BROADCASTS.apply(blackMirrorLastWeek)))));
         searcher.contentChange(Iterables.<Described>concat(brands, Iterables.filter(items, IS_TOP_LEVEL_ITEM)));
         searcher.afterContentChange();
     }
@@ -274,6 +275,13 @@ public class LuceneContentIndexTest extends TestCase {
             
     }
     
+    public void testPriorityChannelBoost() {
+        check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
+                .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withPriorityChannelBoost(5.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorLastWeek, blackMirrorNextWeek);
+        check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
+                .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorNextWeek, blackMirrorLastWeek);
+    }
+    
     protected static SearchQuery title(String term) {
         return SearchQuery.builder(term).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build();
     }
@@ -337,4 +345,19 @@ public class LuceneContentIndexTest extends TestCase {
         }
         
     };
+    
+    // TODO: Add tests for this
+    private static class DummyBroadcastBooster implements BroadcastBooster {
+
+        private final Set<Broadcast> boost;
+        public DummyBroadcastBooster(Set<Broadcast> boost) {
+            this.boost = boost;
+        }
+        
+        @Override
+        public boolean shouldBoost(Broadcast broadcast) {
+            return boost.contains(broadcast);
+        }
+        
+    }
 }
