@@ -414,7 +414,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         } else {
             retQuery = query;
         }
-        return new BooleanBoostScore(retQuery, FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE).withWeighting(q.getPriorityChannelBoost());
+        return new BooleanBoostScore(retQuery, FIELD_ON_PRIORITY_CHANNEL_IN_FUTURE).withWeighting(q.getPriorityChannelWeighting());
         
     }
 

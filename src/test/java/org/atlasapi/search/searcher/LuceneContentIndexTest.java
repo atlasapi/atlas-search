@@ -277,7 +277,7 @@ public class LuceneContentIndexTest extends TestCase {
     
     public void testPriorityChannelBoost() {
         check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
-                .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withPriorityChannelBoost(5.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorLastWeek, blackMirrorNextWeek);
+                .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withPriorityChannelWeighting(5.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorLastWeek, blackMirrorNextWeek);
         check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
                 .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorNextWeek, blackMirrorLastWeek);
     }

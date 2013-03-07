@@ -99,7 +99,7 @@ public class SearchServlet extends HttpServlet {
             .withType(request.getParameter("type"))
             .isTopLevelOnly(topLevelOnly(request))
             .withCurrentBroadcastsOnly(currentBroadcastsOnly(request))
-            .withPriorityChannelBoost(priorityChannelWeighting)
+            .withPriorityChannelWeighting(priorityChannelWeighting)
             .build();
         if (request.getParameter("debug") != null) {
             response.setContentType(MimeType.TEXT_PLAIN.toString());
