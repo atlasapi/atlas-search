@@ -40,6 +40,9 @@ public class ChannelGroupBroadcastChannelBooster implements BroadcastBooster {
             @Override
             public Set<String> call() throws Exception {
                 Optional<ChannelGroup> channelGroup = channelGroupResolver.channelGroupFor(channelGroupId.longValue());
+                if (!channelGroup.isPresent()) {
+                    return ImmutableSet.of();
+                }
                 return getCurrentChannelsInGroup(channelGroup.get());
             }
             
