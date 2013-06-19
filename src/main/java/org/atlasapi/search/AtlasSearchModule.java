@@ -53,6 +53,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String mongoDbName = Configurer.get("mongo.dbName").get();
+	private final Integer mongoDbPort = Configurer.get("mongo.port").toInt();
 	private final String cassandraEnv = Configurer.get("cassandra.env").get();
     private final String cassandraSeeds = Configurer.get("cassandra.seeds").get();
     private final String cassandraPort = Configurer.get("cassandra.port").get();
@@ -70,8 +71,8 @@ public class AtlasSearchModule extends WebAwareModule {
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
-                new MongoContentResolver(mongo(), 
-                new MongoLookupEntryStore(mongo())), booster
+                new MongoContentResolver(mongo(), new MongoLookupEntryStore(mongo())), 
+                booster
         );
         
         Builder<HealthProbe> probes = ImmutableList.builder();
@@ -190,7 +191,7 @@ public class AtlasSearchModule extends WebAwareModule {
             @Override
             public ServerAddress apply(String input) {
                 try {
-                    return new ServerAddress(input, 27017);
+                    return new ServerAddress(input, mongoDbPort);
                 } catch (UnknownHostException e) {
                     return null;
                 }
