@@ -43,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
+import org.atlasapi.persistence.lookup.mongo.MongoLookupEntryStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.joda.time.Duration;
@@ -67,7 +68,11 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
-        LuceneContentIndex index = new LuceneContentIndex(new File(luceneDir), new MongoContentResolver(mongo()), booster);
+        LuceneContentIndex index = new LuceneContentIndex(
+                new File(luceneDir), 
+                new MongoContentResolver(mongo(), 
+                new MongoLookupEntryStore(mongo())), booster
+        );
         
         Builder<HealthProbe> probes = ImmutableList.builder();
         
