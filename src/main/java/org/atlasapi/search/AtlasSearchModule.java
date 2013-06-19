@@ -22,7 +22,9 @@ import org.atlasapi.search.www.WebAwareModule;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
@@ -36,6 +38,7 @@ import com.mongodb.ServerAddress;
 import java.io.File;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -100,7 +103,18 @@ public class AtlasSearchModule extends WebAwareModule {
 	
     @Bean
     ContentBootstrapper mongoBootstrapper() {
-        ContentBootstrapper bootstrapper = new ContentBootstrapper();
+        
+        ContentListingCriteria criteria = defaultCriteria()
+                .forPublishers(ImmutableSet.<Publisher>builder()
+                        .add(Publisher.PA) 
+                        .addAll(Publisher.all())
+                        .build()
+                        .asList()
+                        )
+                .forContent(ImmutableSet.of(ContentCategory.CONTAINER, ContentCategory.TOP_LEVEL_ITEM))
+                .build();
+        
+        ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo()));
