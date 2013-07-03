@@ -24,7 +24,6 @@ import org.springframework.context.annotation.Bean;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Lists;
 import com.metabroadcast.common.health.HealthProbe;
@@ -38,11 +37,12 @@ import com.mongodb.ServerAddress;
 import java.io.File;
 import java.net.UnknownHostException;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
+import org.atlasapi.persistence.lookup.TransitiveLookupWriter;
+import org.atlasapi.persistence.lookup.entry.LookupEntryStore;
 import org.atlasapi.persistence.lookup.mongo.MongoLookupEntryStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
@@ -71,7 +71,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
-                new MongoContentResolver(mongo(), new MongoLookupEntryStore(mongo())), 
+                new MongoContentResolver(mongo(), new MongoLookupEntryStore(mongo().collection("lookup"))), 
                 booster
         );
         
@@ -123,7 +123,8 @@ public class AtlasSearchModule extends WebAwareModule {
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
-            bootstrapper.withPeopleListers(new MongoPersonStore(mongo()));
+            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"));
+            bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore));
         }
         return bootstrapper;
     }
