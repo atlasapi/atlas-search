@@ -1,38 +1,6 @@
 package org.atlasapi.search;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
-
-import org.atlasapi.media.channel.ChannelResolver;
-import org.atlasapi.media.channel.MongoChannelGroupStore;
-import org.atlasapi.media.channel.MongoChannelStore;
-import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentCategory;
-import org.atlasapi.persistence.content.listing.ContentListingCriteria;
-import org.atlasapi.persistence.content.mongo.MongoContentLister;
-import org.atlasapi.persistence.content.mongo.MongoContentResolver;
-import org.atlasapi.persistence.content.mongo.MongoPersonStore;
-import org.atlasapi.search.searcher.BroadcastBooster;
-import org.atlasapi.search.searcher.ChannelGroupBroadcastChannelBooster;
-import org.atlasapi.search.searcher.LuceneSearcherProbe;
-import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
-import org.atlasapi.search.view.JsonSearchResultsView;
-import org.atlasapi.search.www.WebAwareModule;
-import org.springframework.context.annotation.Bean;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.Lists;
-import com.metabroadcast.common.health.HealthProbe;
-import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
-import com.metabroadcast.common.properties.Configurer;
-import com.metabroadcast.common.webapp.health.HealthController;
-import com.mongodb.Mongo;
-import com.mongodb.ReadPreference;
-import com.mongodb.ServerAddress;
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
 import java.io.File;
 import java.net.UnknownHostException;
@@ -40,25 +8,66 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import org.atlasapi.media.channel.ChannelResolver;
+import org.atlasapi.media.channel.MongoChannelGroupStore;
+import org.atlasapi.media.channel.MongoChannelStore;
+import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
+import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.mongo.MongoContentLister;
+import org.atlasapi.persistence.content.mongo.MongoContentResolver;
+import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.persistence.lookup.TransitiveLookupWriter;
 import org.atlasapi.persistence.lookup.entry.LookupEntryStore;
 import org.atlasapi.persistence.lookup.mongo.MongoLookupEntryStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
+import org.atlasapi.search.searcher.BroadcastBooster;
+import org.atlasapi.search.searcher.ChannelGroupBroadcastChannelBooster;
 import org.atlasapi.search.searcher.LuceneContentIndex;
+import org.atlasapi.search.searcher.LuceneSearcherProbe;
+import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
+import org.atlasapi.search.view.JsonSearchResultsView;
+import org.atlasapi.search.www.WebAwareModule;
 import org.joda.time.Duration;
-import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
+import org.springframework.context.annotation.Bean;
+
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.metabroadcast.common.health.HealthProbe;
+import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import com.metabroadcast.common.properties.Configurer;
+import com.metabroadcast.common.webapp.health.HealthController;
+import com.mongodb.Mongo;
+import com.mongodb.ReadPreference;
+import com.mongodb.ServerAddress;
+import com.netflix.astyanax.AstyanaxContext;
+import com.netflix.astyanax.Keyspace;
+import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
+import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
+import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
+import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
+import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 
 public class AtlasSearchModule extends WebAwareModule {
 
 	private final String mongoHost = Configurer.get("mongo.host").get();
 	private final String mongoDbName = Configurer.get("mongo.dbName").get();
 	private final Integer mongoDbPort = Configurer.get("mongo.port").toInt();
-	private final String cassandraEnv = Configurer.get("cassandra.env").get();
+    private final String cassandraCluster = Configurer.get("cassandra.cluster").get();
+    private final String cassandraKeyspace = Configurer.get("cassandra.keyspace").get();
     private final String cassandraSeeds = Configurer.get("cassandra.seeds").get();
-    private final String cassandraPort = Configurer.get("cassandra.port").get();
-    private final String cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").get();
-    private final String cassandraRequestTimeout = Configurer.get("cassandra.requestTimeout").get();
+    private final int cassandraPort = Configurer.get("cassandra.port").toInt();
+    private final int cassandraMaxConnectionsPerHost = Configurer.get("cassandra.maxConnectionsPerHost").toInt();
+    private final int cassandraMaxBlockedThreadsPerHost = Configurer.get("cassandra.maxBlockedThreadsPerHost").toInt();
+    private final int cassandraConnectionTimeout = Configurer.get("cassandra.connectionTimeout").toInt();
+    private final int cassandraRequestTimeout = Configurer.get("cassandra.requestTimeout").toInt();
     private final String luceneDir = Configurer.get("lucene.contentDir").get();
     private final String luceneIndexAtStartup = Configurer.get("lucene.indexAtStartup", "").get();
 	private final String enablePeople = Configurer.get("people.enabled").get();
@@ -170,14 +179,25 @@ public class AtlasSearchModule extends WebAwareModule {
     
     public @Bean CassandraContentStore cassandra() {
 		try {
-		    System.out.println(cassandraEnv);
+		    AstyanaxContext<Keyspace> context = new AstyanaxContext.Builder()
+                .forCluster(cassandraCluster)
+                .forKeyspace(cassandraKeyspace)
+                .withAstyanaxConfiguration(new AstyanaxConfigurationImpl().setDiscoveryType(NodeDiscoveryType.NONE))
+                .withConnectionPoolConfiguration(
+                    new ConnectionPoolConfigurationImpl(cassandraCluster)
+                        .setPort(cassandraPort)
+                        .setMaxBlockedThreadsPerHost(cassandraMaxBlockedThreadsPerHost)
+                        .setMaxConnsPerHost(cassandraMaxConnectionsPerHost)
+                        .setConnectTimeout(cassandraConnectionTimeout)
+                        .setSeeds(cassandraSeeds)
+                )
+                .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
+                .buildKeyspace(ThriftFamilyFactory.getInstance());
+		    
 			CassandraContentStore cassandraContentStore = new CassandraContentStore(
-			    cassandraEnv,
-			    Lists.newArrayList(Splitter.on(',').split(cassandraSeeds)), 
-                Integer.parseInt(cassandraPort), 
-                Runtime.getRuntime().availableProcessors() * 10, 
-                Integer.parseInt(cassandraConnectionTimeout), 
-                Integer.parseInt(cassandraRequestTimeout));
+			    context, 
+                cassandraRequestTimeout
+            );
             cassandraContentStore.init();
             return cassandraContentStore;
 		} catch (Exception e) {
