@@ -45,6 +45,7 @@ import org.apache.lucene.search.function.IntFieldSource;
 import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
@@ -121,7 +122,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         this.contentResolver = contentResolver;
         this.broadcastBooster = broadcastBooster;
         try {
-            this.contentDir = FSDirectory.open(luceneDir);
+            this.contentDir = MMapDirectory.open(luceneDir);
             this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
             touchIndex();
             indexWriter.setWriteLockTimeout(5000);
