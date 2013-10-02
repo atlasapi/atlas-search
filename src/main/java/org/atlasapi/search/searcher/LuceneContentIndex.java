@@ -51,6 +51,7 @@ import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.ContentGroup;
 import org.atlasapi.media.entity.Described;
+import org.atlasapi.media.entity.EntityType;
 import org.atlasapi.media.entity.Film;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.LookupRef;
@@ -70,8 +71,10 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -85,6 +88,7 @@ import com.metabroadcast.common.time.Timestamper;
 import org.apache.lucene.search.FilteredQuery;
 import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
+import org.atlasapi.media.entity.simple.ContentIdentifier;
 
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
@@ -100,6 +104,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     static final String FIELD_CONTENT_SPECIALIZATION = "specialization";
     static final String FIELD_CONTENT_PUBLISHER = "publisher";
     static final String FIELD_CURRENT_BROADCASTS = "current-broadcasts";
+    static final String FIELD_TYPE = "entity-type";
     private static final String FIELD_CONTENT_URI = "contentUri";
     private static final String FIELD_AVAILABLE = "available";
     private static final String FIELD_BROADCAST_HOUR_TS = "broadcast";
@@ -235,6 +240,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         doc.add(new Field(FIELD_CONTENT_TITLE, content.getTitle(), Field.Store.NO, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_TITLE_FLATTENED, titleQueryBuilder.flatten(content.getTitle()), Field.Store.YES, Field.Index.ANALYZED));
         doc.add(new Field(FIELD_CONTENT_URI, content.getCanonicalUri(), Field.Store.YES, Field.Index.NOT_ANALYZED));
+        doc.add(new Field(FIELD_TYPE, EntityType.from(content).toString(), Field.Store.YES, Field.Index.NOT_ANALYZED));
         
         if(parent.isPresent()) {
             Container container = parent.get();
@@ -259,7 +265,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             availabilityFieldsAdded = addBroadcastAndAvailabilityFields((Container)content, children.get(), doc);
         }
         
-        if(!availabilityFieldsAdded) {
+        if(!(availabilityFieldsAdded || content instanceof Person) ) {
             return null;
         }
         
@@ -420,19 +426,33 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     }
 
     private Optional<BooleanFilter> filtersFor(SearchQuery q) {
+        
+        Set<String> types;
+        if (q.type() == null) {
+            types = ImmutableSet.of();
+        } else {
+            types = ImmutableSet.copyOf(Splitter.on(",").split(q.type()));
+        }
         List<FilterClause> filters = Lists.newArrayList();
         
         if (!q.getIncludedSpecializations().isEmpty()) {
             filters.add(new FilterClause(getSpecializationFilter(q.getIncludedSpecializations()), Occur.MUST));            
         }
-        if ("item".equals(q.type())) {
+        if (types.contains("item") ^ types.contains("container")) {
+            if (types.contains("item")) {
+                TermsFilter typeField = new TermsFilter();
+                typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, FALSE));
+                filters.add(new FilterClause(typeField, Occur.MUST));
+            } else if (types.contains("container")) {
+                TermsFilter typeField = new TermsFilter();
+                typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, TRUE));
+                filters.add(new FilterClause(typeField, Occur.MUST));
+            }
+        }
+        if (! types.contains("person")) {
             TermsFilter typeField = new TermsFilter();
-            typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, FALSE));
-            filters.add(new FilterClause(typeField, Occur.MUST));
-        } else if ("container".equals(q.type())) {
-            TermsFilter typeField = new TermsFilter();
-            typeField.addTerm(new Term(FIELD_CONTENT_IS_CONTAINER, TRUE));
-            filters.add(new FilterClause(typeField, Occur.MUST));
+            typeField.addTerm(new Term(FIELD_TYPE, EntityType.PERSON.toString()));
+            filters.add(new FilterClause(typeField, Occur.MUST_NOT));
         }
         if (q.topLevelOnly() != null && q.topLevelOnly()) {
             TermsFilter typeField = new TermsFilter();
@@ -523,10 +543,18 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         private String uri;
         private int titleLength;
         private float score;
+        private String entityType;
         
         private Result(ScoreDoc scoreDoc, Document doc) {
             uri = doc.getField(FIELD_CONTENT_URI).stringValue();
             titleLength = doc.getField(FIELD_TITLE_FLATTENED).stringValue().length();
+            Field entityTypeField = doc.getField(FIELD_TYPE);
+            
+            if(entityTypeField != null) {
+                entityType = entityTypeField.stringValue();
+            } else {
+                entityType = EntityType.ITEM.toString();
+            }
             score = scoreDoc.score;
         }
         
@@ -539,15 +567,15 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             return Ints.compare(titleLength, other.titleLength);
         }
     }
-    private static final Function<Result, String> TO_URI = new Function<Result, String>() {
+    private static final Function<Result, ContentIdentifier> TO_CONTENT_IDENTIFIER = new Function<Result, ContentIdentifier>() {
         
         @Override
-        public String apply(Result input) {
-            return input.uri;
+        public ContentIdentifier apply(Result input) {
+            return ContentIdentifier.identifierFrom(null, input.uri, input.entityType);
         }
     };
     
-    private List<String> search(Query query, Filter filter, Selection selection) {
+    private List<ContentIdentifier> search(Query query, Filter filter, Selection selection) {
         try {
             /*
              * We re-sort the results so that when two items have the same score
@@ -560,7 +588,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
                 results.add(new Result(scoreDoc, doc));
             }
             Collections.sort(results);
-            return Lists.transform(results, TO_URI);
+            return Lists.transform(results, TO_CONTENT_IDENTIFIER);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
