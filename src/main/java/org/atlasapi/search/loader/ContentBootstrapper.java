@@ -67,34 +67,9 @@ public class ContentBootstrapper {
     public void loadAllIntoListener(final ContentChangeListener listener) {
         listener.beforeContentChange();
         try {
-            if (log.isInfoEnabled()) {
-                log.info("Bootstrapping top level content");
-            }
-
-            int contentProcessed = 0;
-            for (ContentLister lister : contentListers) {
-
-                Iterator<Content> content = lister.listContent(criteria);
-                Iterator<List<Content>> partitionedContent = Iterators.partition(content, 100);
-                while (partitionedContent.hasNext()) {
-                    try {
-                        Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
-                        listener.contentChange(partition);
-                        contentProcessed += Iterables.size(partition);
-                        if (log.isInfoEnabled()) {
-                            log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to process partition, continuing to next", e);
-                    }
-                }
-            }
-
-            if (log.isInfoEnabled()) {
-                log.info(String.format("Finished bootstrapping %s content.", contentProcessed));
-                log.info("Bootstrapping people.");
-            }
-
+            
+            log.info("Bootstrapping people.");
+            
             final AtomicInteger peopleProcessed = new AtomicInteger(0);
             if (peopleListers != null) {
                 for (PeopleLister lister : peopleListers) {
@@ -114,9 +89,28 @@ public class ContentBootstrapper {
                 }
             }
 
-            if (log.isInfoEnabled()) {
-                log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
+            log.info(String.format("Finished bootstrapping %s people", peopleProcessed.get()));
+            log.info("Bootstrapping top level content");
+
+            int contentProcessed = 0;
+            for (ContentLister lister : contentListers) {
+
+                Iterator<Content> content = lister.listContent(criteria);
+                Iterator<List<Content>> partitionedContent = Iterators.partition(content, 100);
+                while (partitionedContent.hasNext()) {
+                    try {
+                        Iterable<Content> partition = Iterables.filter(partitionedContent.next(), notNull());
+                        listener.contentChange(partition);
+                        contentProcessed += Iterables.size(partition);
+                        if (log.isInfoEnabled()) {
+                            log.info(String.format("%s content processed: %s", contentProcessed, ContentListingProgress.progressFrom(Iterables.getLast(partition))));
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to process partition, continuing to next", e);
+                    }
+                }
             }
+            log.info(String.format("Finished bootstrapping %s content.", contentProcessed));
         } catch (Exception ex) {
             throw new RuntimeException(ex.getMessage(), ex);
         } finally {
