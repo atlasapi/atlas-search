@@ -573,7 +573,11 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         
         @Override
         public ContentIdentifier apply(Result input) {
-            return ContentIdentifier.identifierFrom(null, input.uri, input.entityType);
+            if (EntityType.SERIES.toString().equals(input.entityType)) {
+                return ContentIdentifier.seriesIdentifierFrom(input.uri, null, null);
+            } else { 
+                return ContentIdentifier.identifierFrom(null, input.uri, input.entityType);
+            }
         }
     };
     
