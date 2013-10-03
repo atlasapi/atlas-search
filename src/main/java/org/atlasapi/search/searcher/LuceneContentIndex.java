@@ -44,7 +44,6 @@ import org.apache.lucene.search.function.CustomScoreQuery;
 import org.apache.lucene.search.function.IntFieldSource;
 import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
 import org.atlasapi.media.entity.Broadcast;
@@ -504,6 +503,9 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         TermsFilter filter = new TermsFilter();
         for (Specialization specialization : includedSpecializations) {
             filter.addTerm(new Term(FIELD_CONTENT_SPECIALIZATION, specialization.toString()));
+            // People don't have a specialization, so the specialization filter should not apply
+            // to them
+            filter.addTerm(new Term(FIELD_TYPE, EntityType.PERSON.toString()));
         }
         return filter;
     }
