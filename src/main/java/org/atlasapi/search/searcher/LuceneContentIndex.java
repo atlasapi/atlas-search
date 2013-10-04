@@ -694,5 +694,6 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         }
         
     }
-
+    
+   
 }

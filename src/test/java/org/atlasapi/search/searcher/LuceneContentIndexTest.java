@@ -114,13 +114,15 @@ public class LuceneContentIndexTest extends TestCase {
     private final Item blackMirrorNextWeek = complexItem().withTitle("Black Mirror").withUri("/item/blackmirror-next-week")
             .withVersions(version().withBroadcasts(broadcast().withStartTime(new SystemClock().now().plus(Duration.standardDays(2))).build()).build()).build();
     
+    private final Brand sentencing = brand("/sentencing", "Sentencing");
+    private final Item sentencingEpisode = complexItem().withBrand(sentencing).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
     
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
-           euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire);
+           euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire, sentencing);
 
     private final List<Item> items =  Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
            theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights, blackMirrorVeryOld, blackMirrorLastWeek, blackMirrorNextWeek);
+           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights, blackMirrorVeryOld, blackMirrorLastWeek, blackMirrorNextWeek, sentencingEpisode);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
     private LuceneContentIndex searcher;
@@ -202,6 +204,15 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWireItem);
         check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWireItem);
         check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()));
+    }
+    
+    public void testBrandTitleBeatsEpisodeTitles() throws Exception {
+        check(searcher.search(SearchQuery.builder("Sentencing")
+                .withPublishers(ALL_PUBLISHERS)
+                .withTitleWeighting(1.0f)
+                .isTopLevelOnly(false)
+                .build()), 
+              sentencingEpisode, theWireItem, sentencing);
     }
 
     public void testLimitingToPublishers() throws Exception {
