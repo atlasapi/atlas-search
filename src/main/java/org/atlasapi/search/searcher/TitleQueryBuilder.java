@@ -110,7 +110,7 @@ public class TitleQueryBuilder {
 		BooleanQuery either = new BooleanQuery();
 		either.setMinimumNumberShouldMatch(1);
 		either.add(queryForTerms, Occur.SHOULD);
-		either.add(fuzzyWithoutSpaces(flattenedQuery, fullTitleIndexField), Occur.SHOULD);
+		either.add(fuzzyWithoutSpaces(flattenedQuery, flattenedTitleIndexField), Occur.SHOULD);
 		
 		Query prefix = prefixSearch(flattenedQuery, flattenedTitleIndexField);
 		prefix.setBoost(50 * boostMultiplier);

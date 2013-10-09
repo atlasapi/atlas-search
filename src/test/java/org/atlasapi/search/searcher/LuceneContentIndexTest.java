@@ -154,7 +154,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(title("eastedners")), eastenders, eastendersWeddings);
         check(searcher.search(title("politics east")), politicsEast);
         check(searcher.search(title("eas")), eastenders, eastendersWeddings, politicsEast);
-        check(searcher.search(title("east")), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(title("east")), politicsEast, eastenders, eastendersWeddings);
         check(searcher.search(title("end")));
         check(searcher.search(title("peep show")), peepShow);
         check(searcher.search(title("peep s")), peepShow);
@@ -199,11 +199,11 @@ public class LuceneContentIndexTest extends TestCase {
     }
     
     public void testFindingEpisodeByBrandOrEpisodeTitle() throws Exception {
-        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWire, theWireItem);
+        check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWireItem, theWire);
         check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire);
-        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWireItem);
-        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWireItem);
-        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()));
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(false).build()), sentencingEpisode, theWireItem, sentencing);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), sentencingEpisode, theWireItem, sentencing);
+        check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), sentencing);
     }
     
     public void testBrandTitleBeatsEpisodeTitles() throws Exception {
@@ -216,7 +216,7 @@ public class LuceneContentIndexTest extends TestCase {
     }
 
     public void testLimitingToPublishers() throws Exception {
-        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), eastenders, eastendersWeddings, politicsEast);
+        check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), politicsEast, eastenders, eastendersWeddings);
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()));
 
         Brand east = new Brand("/east", "curie", Publisher.ARCHIVE_ORG);
@@ -264,9 +264,9 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire, wiringLights);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWire, wiringLights, theWireItem);
+            .withTitleWeighting(1.0f).isTopLevelOnly(false).build()), theWireItem, theWire, wiringLights);
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
-            .withTitleWeighting(1.0f).isTopLevelOnly(null).build()), theWire, wiringLights, theWireItem);
+            .withTitleWeighting(1.0f).isTopLevelOnly(null).build()), theWireItem, theWire, wiringLights);
     }
     
     public void testTopLevelTypes() {
