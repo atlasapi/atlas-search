@@ -54,6 +54,7 @@ import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.thrift.ThriftFamilyFactory;
+import com.mongodb.MongoOptions;
 
 public class AtlasSearchModule extends WebAwareModule {
 
@@ -169,8 +170,10 @@ public class AtlasSearchModule extends WebAwareModule {
     
 	public @Bean DatabasedMongo mongo() {
 		try {
-			Mongo mongo = new Mongo(mongoHosts());
-			mongo.setReadPreference(ReadPreference.secondaryPreferred());
+            MongoOptions options = new MongoOptions();
+            options.autoConnectRetry = true;
+            Mongo mongo = new Mongo(mongoHosts(), options);
+            mongo.setReadPreference(ReadPreference.secondaryPreferred());
             return new DatabasedMongo(mongo, mongoDbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
