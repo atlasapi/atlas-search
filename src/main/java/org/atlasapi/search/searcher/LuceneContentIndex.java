@@ -13,11 +13,15 @@
  permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -46,6 +50,8 @@ import org.apache.lucene.search.function.ValueSourceQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
+import org.atlasapi.media.channel.Channel;
+import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
 import org.atlasapi.media.entity.ContentGroup;
@@ -73,6 +79,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -80,6 +87,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import com.metabroadcast.common.base.Maybe;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
@@ -115,16 +123,20 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private static final String FALSE = "F";
     private static final TitleQueryBuilder titleQueryBuilder = new TitleQueryBuilder();
     private static final Timestamper clock = new SystemClock();
+
     private final Directory contentDir;
     private final KnownTypeContentResolver contentResolver;
     private volatile Searcher contentSearcher;
     private Duration maxBroadcastAgeForInclusion = Duration.standardDays(365);
     private final IndexWriter indexWriter;
     private final BroadcastBooster broadcastBooster;
+    private final ChannelResolver channelResolver;
     
-    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, BroadcastBooster broadcastBooster) {
-        this.contentResolver = contentResolver;
-        this.broadcastBooster = broadcastBooster;
+    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, BroadcastBooster broadcastBooster,
+            ChannelResolver channelResolver) {
+        this.contentResolver = checkNotNull(contentResolver);
+        this.broadcastBooster = checkNotNull(broadcastBooster);
+        this.channelResolver = checkNotNull(channelResolver);
         try {
             this.contentDir = MMapDirectory.open(luceneDir);
             this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
@@ -209,16 +221,49 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             Container container = (Container) content;
             List<LookupRef> lookupRefs = LookupRef.fromChildRefs(container.getChildRefs(), container.getPublisher());
             Iterable<Item> items = Iterables.filter(contentResolver.findByLookupRefs(lookupRefs).getAllResolvedResults(), Item.class);
-            index(content, Optional.of(items), Optional.<Container>absent());
             
-            for(Item child : items) {
-                index(child, Optional.<Iterable<Item>>absent(), Optional.of(container));
+            boolean itemInBrandFiltered = false;
+            for(Item item : items) {
+                boolean thisItemHasBeenOnAnAdultChannel = hasBeenOnAnAdultChannel(item);                
+                if (!thisItemHasBeenOnAnAdultChannel) {
+                    index(item, Optional.<Iterable<Item>>absent(), Optional.of(container));
+                } else {
+                    indexWriter.deleteDocuments(new Term(FIELD_CONTENT_URI, item.getCanonicalUri()));
+                }
+                
+                itemInBrandFiltered = itemInBrandFiltered || thisItemHasBeenOnAnAdultChannel;
+            }
+            
+            if (!itemInBrandFiltered) {
+                index(content, Optional.of(items), Optional.<Container>absent());
+            } else {
+                indexWriter.deleteDocuments(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()));
             }
         } else {
             index(content, Optional.<Iterable<Item>>absent(), Optional.<Container>absent());
         }
     }
     
+    private boolean hasBeenOnAnAdultChannel(Item item) {
+        return !Iterables.isEmpty(
+                    FluentIterable.from(item.getVersions())
+                                  .transformAndConcat(org.atlasapi.media.entity.Version.TO_BROADCASTS)
+                                  .filter(IS_ON_ADULT_CHANNEL));
+    }
+    
+    private final Predicate<Broadcast> IS_ON_ADULT_CHANNEL = new Predicate<Broadcast>() {
+
+        @Override
+        public boolean apply(Broadcast input) {
+            Maybe<Channel> channel = channelResolver.fromUri(input.getBroadcastOn());
+            if (!channel.hasValue()) {
+                return false;
+            }
+            return Boolean.TRUE.equals(channel.requireValue().getAdult());
+        }
+        
+    };
+
     private void index(Described content, Optional<Iterable<Item>> children, Optional<Container> parent) throws CorruptIndexException, IOException {
         Document doc = asDocument(content, children, parent);
         if (doc != null) {

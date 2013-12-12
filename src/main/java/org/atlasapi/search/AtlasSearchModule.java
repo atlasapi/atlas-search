@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.atlasapi.media.channel.CachingChannelStore;
 import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.channel.MongoChannelGroupStore;
 import org.atlasapi.media.channel.MongoChannelStore;
@@ -77,11 +78,13 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	@Override
 	public void configure() {
+	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
                 new MongoContentResolver(mongo(), new MongoLookupEntryStore(mongo().collection("lookup"))), 
-                booster
+                booster,
+                new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore))
         );
         
         Builder<HealthProbe> probes = ImmutableList.builder();
