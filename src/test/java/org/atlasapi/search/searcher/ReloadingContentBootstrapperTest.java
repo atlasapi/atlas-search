@@ -2,11 +2,17 @@ package org.atlasapi.search.searcher;
 
 import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
 import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.atlasapi.media.channel.Channel;
+import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.entity.Brand;
 import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Container;
@@ -14,20 +20,19 @@ import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
 import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
-import org.jmock.Mockery;
-import org.jmock.integration.junit4.JMock;
+import org.atlasapi.search.loader.ContentBootstrapper;
 import org.jmock.lib.concurrent.DeterministicScheduler;
 import org.joda.time.DateTime;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.runners.MockitoJUnitRunner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
-import java.io.File;
-import org.atlasapi.search.loader.ContentBootstrapper;
-import org.junit.Before;
+import com.metabroadcast.common.base.Maybe;
 
-@RunWith(JMock.class)
+@RunWith(MockitoJUnitRunner.class)
 public class ReloadingContentBootstrapperTest {
 
     private final Brand dragonsDen = LuceneContentIndexTest.brand("/den", "Dragon's den");
@@ -64,10 +69,9 @@ public class ReloadingContentBootstrapperTest {
             politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem, brasseyeItem, scienceItem, theApprenticeItem);
     private final DummyContentLister retroLister = new DummyContentLister().loadContainerLister(containers).loadTopLevelItemLister(items);
     private final ContentBootstrapper bootstrapper = new ContentBootstrapper().withContentListers(retroLister);
-    @SuppressWarnings("unused")
-    private final Mockery context = new Mockery();
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
     private final KnownTypeContentResolver contentResolver = new DummyKnownTypeContentResolver().respondTo(containers).respondTo(items);
+    private final ChannelResolver channelResolver = mock(ChannelResolver.class);
     private volatile LuceneContentIndex searcher;
     private volatile ReloadingContentBootstrapper reloader;
 
@@ -75,12 +79,13 @@ public class ReloadingContentBootstrapperTest {
     public void setUp() throws Exception {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
-        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster());
+        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(), channelResolver);
         reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, true, 180, TimeUnit.MINUTES);
     }
 
     @Test
     public void shouldLoadAndReloadSearch() {
+        when(channelResolver.fromUri(anyString())).thenReturn(Maybe.<Channel>nothing());  
         bootstrapper.loadAllIntoListener(searcher);
         reloader.kickOffBootstrap();
         testSearcher();
