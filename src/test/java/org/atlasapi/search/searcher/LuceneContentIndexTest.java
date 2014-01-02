@@ -19,18 +19,21 @@ import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.compl
 import static org.atlasapi.media.entity.testing.VersionTestDataBuilder.version;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import junit.framework.TestCase;
-
+import org.atlasapi.media.channel.Channel;
+import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.entity.Brand;
 import org.atlasapi.media.entity.Broadcast;
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Identified;
 import org.atlasapi.media.entity.Item;
+import org.atlasapi.media.entity.MediaType;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
@@ -38,6 +41,11 @@ import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
 import org.joda.time.Duration;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -46,16 +54,27 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
+import com.metabroadcast.common.base.Maybe;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import java.io.File;
 
 import org.atlasapi.media.entity.Specialization;
 
-public class LuceneContentIndexTest extends TestCase {
+@RunWith( MockitoJUnitRunner.class )
+public class LuceneContentIndexTest {
 
     private static final ImmutableSet<Publisher> ALL_PUBLISHERS = ImmutableSet.copyOf(Publisher.values());
+    private static final String ADULT_CHANNEL_URI = "http://an.adult.channel.xxx/";
 
+    private @Mock ChannelResolver channelResolver;
+    
+    private final Channel adultChannel = new Channel(Publisher.METABROADCAST, "Adult channel", "adult", 
+            false, MediaType.VIDEO, ADULT_CHANNEL_URI);
+    
+    private final Channel bbcOne = new Channel(Publisher.METABROADCAST, "BBC One", "bbcone", 
+            false, MediaType.VIDEO, "http://www.bbc.co.uk/bbcone");
+    
     private final Brand dragonsDen = brand("/den", "Dragon's den");
     private final Item dragonsDenItem = complexItem().withBrand(dragonsDen).withVersions(broadcast().buildInVersion()).build();
     private final Brand doctorWho = brand("/doctorwho", "Doctor Who");
@@ -117,29 +136,46 @@ public class LuceneContentIndexTest extends TestCase {
     private final Brand sentencing = brand("/sentencing", "Sentencing");
     private final Item sentencingEpisode = complexItem().withBrand(sentencing).withVersions(ComplexBroadcastTestDataBuilder.broadcast().buildInVersion()).build();
     
+    private final Brand adultBrand = brand("/adult", "Adult Brand");
+    private final Item adultEpisode = complexItem()
+            .withBrand(adultBrand)
+            .withVersions(
+                    ComplexBroadcastTestDataBuilder
+                        .broadcast()
+                        .withChannel(ADULT_CHANNEL_URI)
+                        .buildInVersion())
+            .build();
+    
     private final List<Brand> brands = Arrays.asList(doctorWho, eastendersWeddings, dragonsDen, theCityGardener, eastenders, meetTheMagoons, theJackDeeShow, peepShow, haveIGotNewsForYou,
-           euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire, sentencing);
+           euromillionsDraw, brasseye, science, politicsEast, theApprentice, theWire, sentencing, adultBrand);
 
     private final List<Item> items =  Arrays.asList(apparent, englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, spooks, spookyTheCat, dragonsDenItem, doctorWhoItem,
            theCityGardenerItem, eastendersItem, eastendersWeddingsItem, politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem,
-           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights, blackMirrorVeryOld, blackMirrorLastWeek, blackMirrorNextWeek, sentencingEpisode);
+           brasseyeItem, scienceItem, theApprenticeItem, theWireItem, wiringLights, blackMirrorVeryOld, blackMirrorLastWeek, blackMirrorNextWeek, sentencingEpisode, adultEpisode);
     private final List<Item> itemsUpdated = Arrays.asList(u2);
 
     private LuceneContentIndex searcher;
     private DummyKnownTypeContentResolver contentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         Iterable<Described> allContent = Iterables.<Described>concat(brands, items, itemsUpdated);
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
+        adultChannel.setAdult(true);
+        
         contentResolver = new DummyKnownTypeContentResolver().respondTo(allContent);
-        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(ImmutableSet.of(Iterables.getOnlyElement(Item.FLATTEN_BROADCASTS.apply(blackMirrorLastWeek)))));
+        when(channelResolver.fromUri(ADULT_CHANNEL_URI)).thenReturn(Maybe.just(adultChannel));
+        when(channelResolver.fromUri("bbcone")).thenReturn(Maybe.just(bbcOne));            
+        searcher = new LuceneContentIndex(luceneDir, 
+                                contentResolver, 
+                                new DummyBroadcastBooster(ImmutableSet.of(Iterables.getOnlyElement(Item.FLATTEN_BROADCASTS.apply(blackMirrorLastWeek)))),
+                                channelResolver);
         searcher.contentChange(Iterables.<Described>concat(brands, Iterables.filter(items, IS_TOP_LEVEL_ITEM)));
         searcher.afterContentChange();
     }
 
+    @Test
     public void testFindingBrandsByTitle() throws Exception {
         check(searcher.search(title("aprentice")), theApprentice);
         check(searcher.search(currentWeighted("apprent")), theApprentice, apparent);
@@ -172,6 +208,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(title("Spooks")), spooks, spookyTheCat);
     }
     
+    @Test
     public void testFindingBrandsByTitleAfterUpdate() throws Exception {
         check(searcher.search(title("aprentice")), theApprentice);
         //
@@ -185,6 +222,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(title("Completely Different2")), theApprentice);
     }
     
+    @Test
     public void testFindingBrandsBySpecialization() throws Exception {
         check(searcher.search(title("aprentice")), theApprentice);
         //
@@ -198,6 +236,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(specializedTitle("aprentice", Specialization.RADIO)), theApprentice);
     }
     
+    @Test
     public void testFindingEpisodeByBrandOrEpisodeTitle() throws Exception {
         check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).build()), theWireItem, theWire);
         check(searcher.search(SearchQuery.builder("The Wire").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire);
@@ -206,6 +245,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(SearchQuery.builder("Sentencing").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), sentencing);
     }
     
+    @Test
     public void testBrandTitleBeatsEpisodeTitles() throws Exception {
         check(searcher.search(SearchQuery.builder("Sentencing")
                 .withPublishers(ALL_PUBLISHERS)
@@ -214,7 +254,8 @@ public class LuceneContentIndexTest extends TestCase {
                 .build()), 
               sentencingEpisode, theWireItem, sentencing);
     }
-
+    
+    @Test
     public void testLimitingToPublishers() throws Exception {
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.BBC, Publisher.YOUTUBE)).withTitleWeighting(1.0f).isTopLevelOnly(true).build()), politicsEast, eastenders, eastendersWeddings);
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()));
@@ -231,17 +272,20 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(SearchQuery.builder("east").withPublishers(ImmutableSet.of(Publisher.ARCHIVE_ORG, Publisher.YOUTUBE)).withTitleWeighting(1.0f).build()), east);
     }
 
+    @Test
     public void testUsesPrefixSearchForShortSearches() throws Exception {
         check(searcher.search(title("Dr")), doctorWho, dragonsDen);
         check(searcher.search(title("l")));
     }
 
+    @Test
     public void testLimitAndOffset() throws Exception {
         check(searcher.search((SearchQuery.builder("eas").withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), eastenders, eastendersWeddings, politicsEast);
         check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.limitedTo(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), eastenders, eastendersWeddings);
         check(searcher.search((SearchQuery.builder("eas").withSelection(Selection.offsetBy(2)).withPublishers(ALL_PUBLISHERS).withTitleWeighting(1.0f).isTopLevelOnly(true).build())), politicsEast);
     }
 
+    @Test
     public void testBroadcastLocationWeighting() {
         check(searcher.search(currentWeighted("spooks")), spooks, spookyTheCat);
 
@@ -249,6 +293,7 @@ public class LuceneContentIndexTest extends TestCase {
         check(searcher.search(currentWeighted("spook")), spookyTheCat, spooks);
     }
     
+    @Test
     public void testTypeParameter() {
         check(searcher.search(SearchQuery.builder("The City Gardener").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).withType("container").build()), theCityGardener);
@@ -260,6 +305,7 @@ public class LuceneContentIndexTest extends TestCase {
             .withTitleWeighting(1.0f).withType("container").build()), spooks, spookyTheCat);
     }
     
+    @Test
     public void testTopLevelOnlyFlag() {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).isTopLevelOnly(true).build()), theWire, wiringLights);
@@ -269,6 +315,7 @@ public class LuceneContentIndexTest extends TestCase {
             .withTitleWeighting(1.0f).isTopLevelOnly(null).build()), theWireItem, theWire, wiringLights);
     }
     
+    @Test
     public void testTopLevelTypes() {
         check(searcher.search(SearchQuery.builder("wir").withPublishers(ALL_PUBLISHERS)
             .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("item").build()), wiringLights);
@@ -276,6 +323,7 @@ public class LuceneContentIndexTest extends TestCase {
             .withTitleWeighting(1.0f).isTopLevelOnly(true).withType("container").build()), theWire);
     }
     
+    @Test
     public void testCurrentBroadcastsOnlyFlag() {
         check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
             .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorNextWeek, blackMirrorLastWeek);
@@ -286,11 +334,17 @@ public class LuceneContentIndexTest extends TestCase {
             
     }
     
+    @Test
     public void testPriorityChannelBoost() {
         check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
                 .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withPriorityChannelWeighting(5.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorLastWeek, blackMirrorNextWeek);
         check(searcher.search(SearchQuery.builder("Black Mirror").withPublishers(ALL_PUBLISHERS)
                 .withBroadcastWeighting(10.0f).withTitleWeighting(1.0f).withCurrentBroadcastsOnly(true).build()), blackMirrorNextWeek, blackMirrorLastWeek);
+    }
+    
+    @Test
+    public void testAdultChannelNotIndexed() {
+        check(searcher.search(title("adult")));
     }
     
     protected static SearchQuery title(String term) {
