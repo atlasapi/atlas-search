@@ -1,8 +1,8 @@
 package org.atlasapi.search.searcher;
 
+import static com.metabroadcast.common.health.ProbeResult.ProbeResultType.INFO;
+
 import org.joda.time.DateTime;
-import org.joda.time.Duration;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -11,8 +11,6 @@ import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.health.ProbeResult;
 import com.metabroadcast.common.health.ProbeResult.ProbeResultEntry;
 import com.metabroadcast.common.health.ProbeResult.ProbeResultType;
-import com.metabroadcast.common.time.Clock;
-import com.metabroadcast.common.time.SystemClock;
 
 public class LuceneSearcherProbe implements HealthProbe {
 
@@ -21,16 +19,12 @@ public class LuceneSearcherProbe implements HealthProbe {
     private static final ProbeResultEntry NO_LAST_BUILD
         = new ProbeResultEntry(ProbeResultType.INFO, LAST_INDEX_BUILD_KEY, "nil");
 
-    private final Clock clock;
     private final ReloadingContentBootstrapper index;
     private final String slug;
-    private final Duration maxStaleness;
 
-    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index, Duration maxStaleness) {
+    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
         this.slug = slug;
         this.index = index;
-        this.maxStaleness = maxStaleness;
-        this.clock = new SystemClock();
     }
 
     @Override
@@ -49,15 +43,7 @@ public class LuceneSearcherProbe implements HealthProbe {
         if (lastIndexBuild == null) {
             return NO_LAST_BUILD;
         }
-        ProbeResultType type = indexBuiltAndFresh(lastIndexBuild) ? ProbeResultType.SUCCESS
-                                                                  : ProbeResultType.FAILURE;
-        return new ProbeResultEntry(type, LAST_INDEX_BUILD_KEY, dateFormat.print(lastIndexBuild));
-    }
-
-    private boolean indexBuiltAndFresh(DateTime lastIndexBuild) {
-        DateTime oldestAcceptableIndexBuild = clock.now().minus(maxStaleness);
-        return lastIndexBuild != null
-                && lastIndexBuild.isAfter(oldestAcceptableIndexBuild);
+        return new ProbeResultEntry(INFO, LAST_INDEX_BUILD_KEY, dateFormat.print(lastIndexBuild));
     }
 
     @Override

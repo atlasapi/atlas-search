@@ -30,7 +30,6 @@ import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
 import org.atlasapi.search.www.WebAwareModule;
-import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.base.Function;
@@ -88,18 +87,18 @@ public class AtlasSearchModule extends WebAwareModule {
         
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
         ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
-        probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper, Duration.standardHours(24)));
+        probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper));
         
         ReloadingContentBootstrapper cassandraBootstrapper = null;
         if(Boolean.valueOf(enableCassandra)) {
             cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(),scheduler,  Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
-            probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper, Duration.standardDays(9)));
+            probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper));
         }
         
         ReloadingContentBootstrapper musicBootStrapper = null;
         if(Boolean.valueOf(enableMusic)) {
             musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
-            probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper, Duration.standardHours(24)));
+            probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper));
         }
         
 		bind("/system/health", new HealthController(probes.build()));
