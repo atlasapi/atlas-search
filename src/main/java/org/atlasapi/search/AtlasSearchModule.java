@@ -30,6 +30,7 @@ import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
+import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
 import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
@@ -108,6 +109,7 @@ public class AtlasSearchModule extends WebAwareModule {
         
 		bind("/system/health", new HealthController(probes.build()));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
+		bind("/debug/document", new DocumentController(index));
 		
 		mongoBootstrapper.start();
 		

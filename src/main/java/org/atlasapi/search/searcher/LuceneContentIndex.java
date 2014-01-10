@@ -41,6 +41,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermsFilter;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
@@ -156,6 +157,21 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     @Override
     public String debug(SearchQuery q) {
         return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
+    }
+    
+    @Override
+    public Optional<String> document(String uri) {
+        try {
+            TopDocs topDocs = getTopDocs(new TermQuery(new Term(FIELD_CONTENT_URI, uri)), null, Selection.all());
+            
+            if (topDocs.totalHits == 0) {
+                return Optional.absent();
+            }
+            
+            return Optional.of(contentSearcher.doc(topDocs.scoreDocs[0].doc).toString());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
     
     @Override
