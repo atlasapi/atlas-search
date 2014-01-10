@@ -15,6 +15,7 @@ import org.atlasapi.media.channel.MongoChannelGroupStore;
 import org.atlasapi.media.channel.MongoChannelStore;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentCategory;
+import org.atlasapi.persistence.content.LookupResolvingContentResolver;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
@@ -30,6 +31,7 @@ import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
+import org.atlasapi.search.www.ContentIndexController;
 import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
 import org.joda.time.Duration;
@@ -81,10 +83,12 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
+	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"));
+	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
-                new MongoContentResolver(mongo(), new MongoLookupEntryStore(mongo().collection("lookup"))), 
+                contentResolver, 
                 booster,
                 new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore))
         );
@@ -110,6 +114,7 @@ public class AtlasSearchModule extends WebAwareModule {
 		bind("/system/health", new HealthController(probes.build()));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		bind("/debug/document", new DocumentController(index));
+		bind("/index", new ContentIndexController(new LookupResolvingContentResolver(contentResolver, lookupEntryStore), index));
 		
 		mongoBootstrapper.start();
 		
