@@ -33,8 +33,10 @@ public class ContentIndexController extends HttpServlet {
     
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        index.beforeContentChange();
         index.contentChange(Iterables.filter(
                 contentResolver.findByCanonicalUris(ImmutableSet.of(request.getParameter(URI_PARAMETER))).getAllResolvedResults(), Described.class));
+        index.afterContentChange();
         response.getWriter().write("DONE");
     }
 }
