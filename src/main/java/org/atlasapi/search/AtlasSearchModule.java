@@ -86,11 +86,13 @@ public class AtlasSearchModule extends WebAwareModule {
 	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"));
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
+	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
+	    channelStore.start();
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
                 contentResolver, 
                 booster,
-                new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore))
+                channelStore
         );
         
         Builder<HealthProbe> probes = ImmutableList.builder();
