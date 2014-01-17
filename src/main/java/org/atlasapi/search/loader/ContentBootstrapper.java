@@ -81,8 +81,7 @@ public class ContentBootstrapper {
                                 listener.contentChange(ImmutableList.of(person));
                                 peopleProcessed.incrementAndGet();
                             } catch (RuntimeException ex) {
-                                log.warn(ex.getMessage(), ex);
-                                throw ex;
+                                log.warn("Failed to index person " + person.getCanonicalUri(), ex);
                             }
                         }
                     });
