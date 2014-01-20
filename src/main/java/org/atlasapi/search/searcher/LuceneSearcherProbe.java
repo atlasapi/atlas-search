@@ -1,35 +1,49 @@
 package org.atlasapi.search.searcher;
 
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
+import static com.metabroadcast.common.health.ProbeResult.ProbeResultType.INFO;
 
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+
+import com.google.common.base.Throwables;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.health.ProbeResult;
-import com.metabroadcast.common.time.Clock;
-import com.metabroadcast.common.time.SystemClock;
+import com.metabroadcast.common.health.ProbeResult.ProbeResultEntry;
+import com.metabroadcast.common.health.ProbeResult.ProbeResultType;
 
 public class LuceneSearcherProbe implements HealthProbe {
 
-    private final Clock clock;
+    private static final String LAST_INDEX_BUILD_KEY = "last index rebuild finish time";
+    private static final DateTimeFormatter dateFormat= ISODateTimeFormat.dateTime();
+    private static final ProbeResultEntry NO_LAST_BUILD
+        = new ProbeResultEntry(ProbeResultType.INFO, LAST_INDEX_BUILD_KEY, "nil");
+
     private final ReloadingContentBootstrapper index;
     private final String slug;
-    private final Duration maxStaleness;
 
-    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index, Duration maxStaleness) {
+    public LuceneSearcherProbe(String slug, ReloadingContentBootstrapper index) {
         this.slug = slug;
         this.index = index;
-        this.maxStaleness = maxStaleness;
-        this.clock = new SystemClock();
     }
 
     @Override
     public ProbeResult probe() {
         ProbeResult result = new ProbeResult(title());
-        DateTime lastIndexBuild = index.lastIndexBuild();
-        result.add("Last index rebuild finish time",
-                lastIndexBuild != null ? lastIndexBuild.toString("dd/MM/yy HH:mm") : "nil",
-                lastIndexBuild != null && clock.now().minus(maxStaleness).isBefore(lastIndexBuild));
+        try {
+            DateTime lastIndexBuild = index.lastIndexBuild();
+            result.addEntry(lastIndexBuildEntry(lastIndexBuild));
+        } catch (Exception e) {
+            result.add("Probe exception", Throwables.getStackTraceAsString(e), false);
+        }
         return result;
+    }
+
+    private ProbeResultEntry lastIndexBuildEntry(DateTime lastIndexBuild) {
+        if (lastIndexBuild == null) {
+            return NO_LAST_BUILD;
+        }
+        return new ProbeResultEntry(INFO, LAST_INDEX_BUILD_KEY, dateFormat.print(lastIndexBuild));
     }
 
     @Override
