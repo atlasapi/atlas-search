@@ -13,7 +13,9 @@ import org.atlasapi.media.channel.CachingChannelStore;
 import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.channel.MongoChannelGroupStore;
 import org.atlasapi.media.channel.MongoChannelStore;
+import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
+import org.atlasapi.persistence.audit.PersistenceAuditLog;
 import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.LookupResolvingContentResolver;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
@@ -145,7 +147,7 @@ public class AtlasSearchModule extends WebAwareModule {
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
             LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"));
-            bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore));
+            bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
         }
         return bootstrapper;
     }
@@ -233,4 +235,19 @@ public class AtlasSearchModule extends WebAwareModule {
             }
         }), Predicates.notNull()));
     }
+    
+    private static class DummyPersistenceAuditLog implements PersistenceAuditLog {
+
+        @Override
+        public void logWrite(Described described) {
+            // DO NOTHING
+            
+        }
+
+        @Override
+        public void logNoWrite(Described described) {
+            // DO NOTHING
+        }
+        
+    };
 }
