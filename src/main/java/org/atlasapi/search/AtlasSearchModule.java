@@ -84,7 +84,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	@Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
-	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"));
+	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), ReadPreference.secondaryPreferred());
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
@@ -146,7 +146,7 @@ public class AtlasSearchModule extends WebAwareModule {
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
-            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"));
+            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), ReadPreference.secondaryPreferred());
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
         }
         return bootstrapper;
