@@ -41,12 +41,14 @@ import org.springframework.context.annotation.Bean;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
 import com.metabroadcast.common.properties.Configurer;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
@@ -80,11 +82,15 @@ public class AtlasSearchModule extends WebAwareModule {
 	private final String enableMusic = Configurer.get("music.enabled").get();
 	private final String enableCassandra = Configurer.get("cassandra.enabled").get();
 	private final String priorityChannelGroup = Configurer.get("priorityChannelGroup").get();
+	private final String mongoTag = Strings.emptyToNull(Configurer.get("mongo.db.tag").get());
+    private final String mongoFallbackTag = Strings.emptyToNull(Configurer.get("mongo.db.tag.fallback").get());
 
-	@Override
+    private final MongoSecondaryReadPreferenceBuilder secondaryReadPreferenceBuilder = new MongoSecondaryReadPreferenceBuilder();
+    
+	    @Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
-	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), ReadPreference.secondaryPreferred());
+	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), readPreference());
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
@@ -130,6 +136,19 @@ public class AtlasSearchModule extends WebAwareModule {
 		}
 	}
 	
+	private ReadPreference readPreference() {
+    	ImmutableList.Builder<String> tags = ImmutableList.builder();
+        if (mongoTag != null) {
+            tags.add(mongoTag);
+        }
+        
+        if (mongoFallbackTag != null) {
+            tags.add(mongoFallbackTag);
+        }
+        
+        return secondaryReadPreferenceBuilder.fromProperties(tags.build());
+	}
+	
     @Bean
     ContentBootstrapper mongoBootstrapper() {
         
@@ -146,7 +165,7 @@ public class AtlasSearchModule extends WebAwareModule {
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
-            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), ReadPreference.secondaryPreferred());
+            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), readPreference());
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
         }
         return bootstrapper;
@@ -186,7 +205,7 @@ public class AtlasSearchModule extends WebAwareModule {
             MongoOptions options = new MongoOptions();
             options.autoConnectRetry = true;
             Mongo mongo = new Mongo(mongoHosts(), options);
-            mongo.setReadPreference(ReadPreference.secondaryPreferred());
+            mongo.setReadPreference(readPreference());
             return new DatabasedMongo(mongo, mongoDbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
