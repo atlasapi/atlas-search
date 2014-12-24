@@ -142,10 +142,12 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private final ChannelResolver channelResolver;
     private final SnapshotDeletionPolicy snapshotter;
     private final String backupDirectory;
+    private final File luceneDir;
     
     public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, 
             BroadcastBooster broadcastBooster,
             ChannelResolver channelResolver, String backupDirectory) {
+        this.luceneDir = luceneDir;
         this.contentResolver = checkNotNull(contentResolver);
         this.broadcastBooster = checkNotNull(broadcastBooster);
         this.channelResolver = checkNotNull(channelResolver);
@@ -217,7 +219,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             
             Path singleBackupSubdir = createBackupDirectory();
             for (String filename: filenames) {
-                Path source = Paths.get(filename);
+                Path source = Paths.get(luceneDir.getAbsolutePath(), filename);
                 Path destination = singleBackupSubdir.resolve(source.getFileName());
                 Files.copy(source, destination);
             }
