@@ -33,9 +33,11 @@ import org.atlasapi.search.searcher.LuceneContentIndex;
 import org.atlasapi.search.searcher.LuceneSearcherProbe;
 import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
+import org.atlasapi.search.www.BackupController;
 import org.atlasapi.search.www.ContentIndexController;
 import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
+import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
 
 import com.google.common.base.Function;
@@ -50,6 +52,8 @@ import com.metabroadcast.common.health.HealthProbe;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
 import com.metabroadcast.common.properties.Configurer;
+import com.metabroadcast.common.scheduling.RepetitionRules;
+import com.metabroadcast.common.scheduling.SimpleScheduler;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
 import com.mongodb.ReadPreference;
@@ -84,23 +88,30 @@ public class AtlasSearchModule extends WebAwareModule {
 	private final String priorityChannelGroup = Configurer.get("priorityChannelGroup").get();
 	private final String mongoTag = Strings.emptyToNull(Configurer.get("mongo.db.tag").get());
     private final String mongoFallbackTag = Strings.emptyToNull(Configurer.get("mongo.db.tag.fallback").get());
+    private final String backupDirectory = Strings.emptyToNull(Configurer.get("backup.directory").get());
 
     private final MongoSecondaryReadPreferenceBuilder secondaryReadPreferenceBuilder = new MongoSecondaryReadPreferenceBuilder();
     
-	    @Override
+    @Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
 	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), readPreference());
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
+	    SimpleScheduler simplescheduler = new SimpleScheduler();
+	    	    
 	    channelStore.start();
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
                 contentResolver, 
                 booster,
-                channelStore
+                channelStore, 
+                backupDirectory
         );
+        
+        IndexBackupScheduledTask indexBackupTask = new IndexBackupScheduledTask(index);
+        simplescheduler.schedule(indexBackupTask, RepetitionRules.every(Duration.standardHours(24)));
         
         Builder<HealthProbe> probes = ImmutableList.builder();
         
@@ -124,6 +135,7 @@ public class AtlasSearchModule extends WebAwareModule {
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		bind("/debug/document", new DocumentController(index));
 		bind("/index", new ContentIndexController(new LookupResolvingContentResolver(contentResolver, lookupEntryStore), index));
+		bind("/system/backup", new BackupController(index));
 		
 		mongoBootstrapper.start();
 		
