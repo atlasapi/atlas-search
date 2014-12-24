@@ -17,6 +17,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +32,10 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.NumericField;
 import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
+import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -93,6 +100,7 @@ import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.time.SystemClock;
 import com.metabroadcast.common.time.Timestamp;
 import com.metabroadcast.common.time.Timestamper;
+
 import org.apache.lucene.search.FilteredQuery;
 import org.atlasapi.media.entity.Song;
 import org.atlasapi.media.entity.Specialization;
@@ -132,15 +140,21 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private final IndexWriter indexWriter;
     private final BroadcastBooster broadcastBooster;
     private final ChannelResolver channelResolver;
+    private final SnapshotDeletionPolicy snapshotter;
+    private final String backupDirectory;
     
-    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, BroadcastBooster broadcastBooster,
-            ChannelResolver channelResolver) {
+    public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, 
+            BroadcastBooster broadcastBooster,
+            ChannelResolver channelResolver, String backupDirectory) {
         this.contentResolver = checkNotNull(contentResolver);
         this.broadcastBooster = checkNotNull(broadcastBooster);
         this.channelResolver = checkNotNull(channelResolver);
+        this.backupDirectory = checkNotNull(backupDirectory);
+        this.snapshotter = new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
         try {
             this.contentDir = MMapDirectory.open(luceneDir);
-            this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), MaxFieldLength.UNLIMITED);
+            this.indexWriter = new IndexWriter(contentDir, new StandardAnalyzer(Version.LUCENE_30), 
+                    snapshotter, MaxFieldLength.UNLIMITED);
             touchIndex();
             indexWriter.setWriteLockTimeout(5000);
             this.contentSearcher = new IndexSearcher(contentDir);
@@ -194,6 +208,31 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         } finally {
             commitWriter();
         }
+    }
+    
+    public synchronized void backup() throws IOException {
+        IndexCommit commit = snapshotter.snapshot();
+        try {
+            Collection<String> filenames = commit.getFileNames();
+            
+            Path singleBackupSubdir = createBackupDirectory();
+            for (String filename: filenames) {
+                Path source = Paths.get(filename);
+                Path destination = singleBackupSubdir.resolve(source.getFileName());
+                Files.copy(source, destination);
+            }
+            // remove symlink first
+            Path symlinkToCurrentBackup = Paths.get(backupDirectory, "current");
+            Files.deleteIfExists(symlinkToCurrentBackup);
+            Files.createSymbolicLink(symlinkToCurrentBackup, singleBackupSubdir);
+        } finally {
+            snapshotter.release();
+        }
+    }
+    
+    private Path createBackupDirectory() throws IOException {
+        DateTime timestamp = DateTime.now();
+        return Files.createDirectory(Paths.get(backupDirectory, timestamp.toString()));
     }
     
     @Override
