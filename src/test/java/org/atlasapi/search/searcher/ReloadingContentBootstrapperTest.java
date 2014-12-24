@@ -79,7 +79,7 @@ public class ReloadingContentBootstrapperTest {
     public void setUp() throws Exception {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
-        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(), channelResolver);
+        searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(), channelResolver, "/tmp");
         reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, true, 180, TimeUnit.MINUTES);
     }
 

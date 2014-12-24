@@ -170,7 +170,8 @@ public class LuceneContentIndexTest {
         searcher = new LuceneContentIndex(luceneDir, 
                                 contentResolver, 
                                 new DummyBroadcastBooster(ImmutableSet.of(Iterables.getOnlyElement(Item.FLATTEN_BROADCASTS.apply(blackMirrorLastWeek)))),
-                                channelResolver);
+                                channelResolver,
+                                "/tmp");
         searcher.contentChange(Iterables.<Described>concat(brands, Iterables.filter(items, IS_TOP_LEVEL_ITEM)));
         searcher.afterContentChange();
     }
