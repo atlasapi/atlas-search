@@ -175,6 +175,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     public SearchResults search(SearchQuery q) {
         ReadLock readLock = lock.readLock();
         try {
+            readLock.lock();
             return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
         } finally {
             readLock.unlock();
@@ -185,6 +186,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     public String debug(SearchQuery q) {
         ReadLock readLock = lock.readLock();
         try {
+            readLock.lock();
             return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
         } finally {
             readLock.unlock();
@@ -641,6 +643,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         Exception error = null;
         WriteLock writeLock = lock.writeLock();
         try {
+            writeLock.lock();
             this.contentSearcher.close();
         } catch (Exception ex) {
             error = ex;
