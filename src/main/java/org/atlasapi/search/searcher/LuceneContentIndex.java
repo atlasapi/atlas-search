@@ -24,6 +24,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import javax.annotation.Nullable;
 
@@ -143,6 +147,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     private final SnapshotDeletionPolicy snapshotter;
     private final String backupDirectory;
     private final File luceneDir;
+    private final ReentrantReadWriteLock lock;
     
     public LuceneContentIndex(File luceneDir, KnownTypeContentResolver contentResolver, 
             BroadcastBooster broadcastBooster,
@@ -152,6 +157,7 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
         this.broadcastBooster = checkNotNull(broadcastBooster);
         this.channelResolver = checkNotNull(channelResolver);
         this.backupDirectory = checkNotNull(backupDirectory);
+        this.lock = new ReentrantReadWriteLock();
         this.snapshotter = new SnapshotDeletionPolicy(new KeepOnlyLastCommitDeletionPolicy());
         try {
             this.contentDir = MMapDirectory.open(luceneDir);
@@ -167,12 +173,22 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     @Override
     public SearchResults search(SearchQuery q) {
-        return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
+        ReadLock readLock = lock.readLock();
+        try {
+            return new SearchResults(search(getQuery(q), getFilter(q), q.getSelection()));
+        } finally {
+            readLock.unlock();
+        }
     }
     
     @Override
     public String debug(SearchQuery q) {
-        return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
+        ReadLock readLock = lock.readLock();
+        try {
+            return Joiner.on("\n").join(debug(getQuery(q), getFilter(q), q.getSelection()));
+        } finally {
+            readLock.unlock();
+        }
     }
     
     @Override
@@ -623,17 +639,20 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
     
     private void refreshSearcher() {
         Exception error = null;
+        WriteLock writeLock = lock.writeLock();
         try {
             this.contentSearcher.close();
         } catch (Exception ex) {
             error = ex;
-        } finally {
+        } finally {            
             // Refresh the searcher in any case:
             try {
                 this.contentSearcher = new IndexSearcher(contentDir);
             } catch (IOException ex) {
                 // An error in refreshing the searcher is more important than an error in closing it:
                 error =  ex;
+            } finally {
+                writeLock.unlock();
             }
             // If there was an error, propagate it:
             if (error != null) {
