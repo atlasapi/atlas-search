@@ -24,6 +24,7 @@ import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
 import org.atlasapi.persistence.lookup.TransitiveLookupWriter;
+import org.atlasapi.persistence.lookup.entry.LookupEntry;
 import org.atlasapi.persistence.lookup.entry.LookupEntryStore;
 import org.atlasapi.persistence.lookup.mongo.MongoLookupEntryStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
@@ -95,7 +96,7 @@ public class AtlasSearchModule extends WebAwareModule {
     @Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
-	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), readPreference());
+	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), new DummyPersistenceAuditLog(), readPreference());
 	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
@@ -177,7 +178,7 @@ public class AtlasSearchModule extends WebAwareModule {
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
         bootstrapper.withContentListers(new MongoContentLister(mongo()));
         if (Boolean.valueOf(enablePeople)) {
-            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), readPreference());
+            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), new DummyPersistenceAuditLog(), readPreference());
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
         }
         return bootstrapper;
@@ -279,6 +280,16 @@ public class AtlasSearchModule extends WebAwareModule {
         public void logNoWrite(Described described) {
             // DO NOTHING
         }
-        
-    };
+
+        @Override
+        public void logWrite(LookupEntry lookupEntry) {
+            //noop
+        }
+
+        @Override
+        public void logNoWrite(LookupEntry lookupEntry) {
+            //noop
+        }
+
+    }
 }
