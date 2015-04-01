@@ -17,6 +17,7 @@ import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.audit.PersistenceAuditLog;
 import org.atlasapi.persistence.content.ContentCategory;
+import org.atlasapi.persistence.content.ContentResolver;
 import org.atlasapi.persistence.content.LookupResolvingContentResolver;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
@@ -96,8 +97,8 @@ public class AtlasSearchModule extends WebAwareModule {
     @Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
-	    MongoLookupEntryStore lookupEntryStore = new MongoLookupEntryStore(mongo().collection("lookup"), new DummyPersistenceAuditLog(), readPreference());
-	    MongoContentResolver contentResolver = new MongoContentResolver(mongo(), lookupEntryStore);
+	    MongoLookupEntryStore lookupEntryStore = contentLookupEntryStore();
+	    MongoContentResolver contentResolver = contentResolver();
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
 	    SimpleScheduler simplescheduler = new SimpleScheduler();
@@ -162,6 +163,10 @@ public class AtlasSearchModule extends WebAwareModule {
         return secondaryReadPreferenceBuilder.fromProperties(tags.build());
 	}
 	
+	@Bean 
+	MongoLookupEntryStore contentLookupEntryStore() {
+	    return new MongoLookupEntryStore(mongo().collection("lookup"), new DummyPersistenceAuditLog(), readPreference());
+	}
     @Bean
     ContentBootstrapper mongoBootstrapper() {
         
@@ -176,7 +181,7 @@ public class AtlasSearchModule extends WebAwareModule {
                 .build();
         
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
-        bootstrapper.withContentListers(new MongoContentLister(mongo()));
+        bootstrapper.withContentListers(new MongoContentLister(mongo(), contentResolver()));
         if (Boolean.valueOf(enablePeople)) {
             LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), new DummyPersistenceAuditLog(), readPreference());
             bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
@@ -201,10 +206,14 @@ public class AtlasSearchModule extends WebAwareModule {
                 .forPublishers(musicPublishers )
                 .build();
         ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria );
-        bootstrapper.withContentListers(new MongoContentLister(mongo()));
+        bootstrapper.withContentListers(new MongoContentLister(mongo(), 
+                                    contentResolver()));
         return bootstrapper;
     }
 
+    public @Bean MongoContentResolver contentResolver() {
+        return new MongoContentResolver(mongo(), contentLookupEntryStore());
+    }
     public @Bean ChannelResolver channelResolver() {
         return new MongoChannelStore(mongo(), mongoChannelGroupStore(), mongoChannelGroupStore());
     }
@@ -273,7 +282,6 @@ public class AtlasSearchModule extends WebAwareModule {
         @Override
         public void logWrite(Described described) {
             // DO NOTHING
-            
         }
 
         @Override
@@ -283,13 +291,13 @@ public class AtlasSearchModule extends WebAwareModule {
 
         @Override
         public void logWrite(LookupEntry lookupEntry) {
-            //noop
+            // DO NOTHING
         }
 
         @Override
         public void logNoWrite(LookupEntry lookupEntry) {
-            //noop
+            // DO NOTHING
         }
-
-    }
+        
+    };
 }
