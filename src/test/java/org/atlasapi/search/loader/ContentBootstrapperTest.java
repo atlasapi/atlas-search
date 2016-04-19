@@ -1,66 +1,96 @@
 package org.atlasapi.search.loader;
 
-import static org.hamcrest.Matchers.hasItems;
-
-import java.util.Iterator;
-import java.util.List;
-
 import org.atlasapi.media.entity.Content;
 import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.listing.ContentLister;
-import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
+import org.atlasapi.persistence.content.listing.ProgressStore;
 import org.atlasapi.search.searcher.ContentChangeListener;
-import org.jmock.Expectations;
-import org.jmock.Mockery;
-import org.jmock.integration.junit4.JMock;
+
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.runners.MockitoJUnitRunner;
 
-import com.google.common.collect.ImmutableList;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@RunWith(JMock.class)
+@RunWith(MockitoJUnitRunner.class)
 public class ContentBootstrapperTest  {
    
-	private final Mockery context = new Mockery();
+    private final Content item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
+    private final Content item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
+    private final Content item3 = new Item("3", "3", Publisher.ARCHIVE_ORG);
 
-    private final Item item1 = new Item("1", "1", Publisher.ARCHIVE_ORG);
-    private final Item item2 = new Item("2", "2", Publisher.ARCHIVE_ORG);
-    private final Item item3 = new Item("3", "3", Publisher.ARCHIVE_ORG);
-	
-    private ContentChangeListener listener = context.mock(ContentChangeListener.class);
-    
-    private final ContentLister lister1 = new ContentLister() {
+    private String taskName;
 
-        List<Content> contents = ImmutableList.<Content>of(item1, item2);
+    @Mock
+    private ContentChangeListener listener;
 
-        @Override
-        public Iterator<Content> listContent(ContentListingCriteria criteria) {
-            return contents.iterator();
-        }
-    };
-    private final ContentLister lister2 = new ContentLister() {
+    @Mock
+    private ProgressStore progressStore;
 
-        List<Content> contents = ImmutableList.<Content>of(item3);
+    private ContentListingProgress progress;
+    private ContentBootstrapper bootstrapper;
 
-        @Override
-        public Iterator<Content> listContent(ContentListingCriteria criteria) {
-            return contents.iterator();
-        }
-    };
-   
-    private ContentBootstrapper bootstrapper = new ContentBootstrapper().withContentListers(lister1, lister2);
-    
+    @Before
+    public void setUp() throws Exception {
+        taskName = "task";
+        progress = ContentListingProgress.progressFrom(item1);
+        bootstrapper = ContentBootstrapper.builder()
+                .withTaskName(taskName)
+                .withProgressStore(progressStore)
+                .withContentLister(criteria -> {
+                    if (ContentListingProgress.START.equals(criteria.getProgress())) {
+                        return ImmutableList.of(item1, item2, item3).iterator();
+                    } else if(criteria.getProgress().getUri().equals(progress.getUri())) {
+                        return ImmutableList.of(item2, item3).iterator();
+                    } else {
+                        throw new IllegalArgumentException("Unexpected content listing progress");
+                    }
+                })
+                .build();
+    }
+
     @Test
-    public void testShouldAllContents() throws Exception {
-        
-        context.checking(new Expectations() {{
-            one(listener).beforeContentChange();
-            one(listener).contentChange(with(hasItems(item1, item2)));
-            one(listener).contentChange(with(hasItems(item3)));
-            one(listener).afterContentChange();
-        }});
+    public void processAllContentInOrder() throws Exception {
+        when(progressStore.progressForTask(taskName)).thenReturn(Optional.absent());
         
         bootstrapper.loadAllIntoListener(listener);
+
+        InOrder order = Mockito.inOrder(listener);
+        order.verify(listener).beforeContentChange();
+        order.verify(listener).contentChange(ImmutableList.of(item1, item2, item3));
+        order.verify(listener).afterContentChange();
+    }
+
+    @Test
+    public void saveProgressAfterProcessing() throws Exception {
+        when(progressStore.progressForTask(taskName)).thenReturn(Optional.absent());
+
+        bootstrapper.loadAllIntoListener(listener);
+
+        InOrder order = Mockito.inOrder(listener, progressStore);
+        order.verify(listener).contentChange(ImmutableList.of(item1, item2, item3));
+        order.verify(progressStore).storeProgress(
+                taskName, ContentListingProgress.progressFrom(item3)
+        );
+    }
+
+    @Test
+    public void resumeFromProgress() throws Exception {
+        when(progressStore.progressForTask(taskName)).thenReturn(Optional.of(progress));
+
+        bootstrapper.loadAllIntoListener(listener);
+
+        verify(listener).contentChange(ImmutableList.of(item2, item3));
+        verify(progressStore).storeProgress(
+                taskName, ContentListingProgress.progressFrom(item3)
+        );
     }
 }
