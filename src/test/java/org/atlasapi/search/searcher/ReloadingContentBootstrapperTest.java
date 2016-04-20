@@ -1,11 +1,5 @@
 package org.atlasapi.search.searcher;
 
-import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
-import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
@@ -20,17 +14,27 @@ import org.atlasapi.media.entity.Item;
 import org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder;
 import org.atlasapi.persistence.content.DummyKnownTypeContentResolver;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
+import org.atlasapi.persistence.content.listing.ProgressStore;
 import org.atlasapi.search.loader.ContentBootstrapper;
+
+import com.metabroadcast.common.base.Maybe;
+
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import org.jmock.lib.concurrent.DeterministicScheduler;
 import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
-import com.metabroadcast.common.base.Maybe;
+import static org.atlasapi.media.entity.testing.ComplexBroadcastTestDataBuilder.broadcast;
+import static org.atlasapi.media.entity.testing.ComplexItemTestDataBuilder.complexItem;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ReloadingContentBootstrapperTest {
@@ -68,24 +72,34 @@ public class ReloadingContentBootstrapperTest {
     private final List<Item> items = ImmutableList.of(englishForCats, jamieOliversCookingProgramme, gordonRamsaysCookingProgramme, u2, dragonsDenItem, theCityGardenerItem, eastendersItem,
             politicsEastItem, meetTheMagoonsItem, theJackDeeShowItem, peepShowItem, euromillionsDrawItem, haveIGotNewsForYouItem, brasseyeItem, scienceItem, theApprenticeItem);
     private final DummyContentLister retroLister = new DummyContentLister().loadContainerLister(containers).loadTopLevelItemLister(items);
-    private final ContentBootstrapper bootstrapper = new ContentBootstrapper().withContentListers(retroLister);
     private final DeterministicScheduler scheduler = new DeterministicScheduler();
     private final KnownTypeContentResolver contentResolver = new DummyKnownTypeContentResolver().respondTo(containers).respondTo(items);
     private final ChannelResolver channelResolver = mock(ChannelResolver.class);
     private volatile LuceneContentIndex searcher;
     private volatile ReloadingContentBootstrapper reloader;
+    @Mock
+    private ProgressStore progressStore;
+
+    private ContentBootstrapper bootstrapper;
 
     @Before
     public void setUp() throws Exception {
         File luceneDir = Files.createTempDir();
         luceneDir.deleteOnExit();
         searcher = new LuceneContentIndex(luceneDir, contentResolver, new DummyBroadcastBooster(), channelResolver, "/tmp");
+        bootstrapper = ContentBootstrapper.builder()
+                .withTaskName("task")
+                .withProgressStore(progressStore)
+                .withContentLister(retroLister)
+                .build();
         reloader = new ReloadingContentBootstrapper(searcher, bootstrapper, scheduler, true, 180, TimeUnit.MINUTES);
     }
 
     @Test
     public void shouldLoadAndReloadSearch() {
-        when(channelResolver.fromUri(anyString())).thenReturn(Maybe.<Channel>nothing());  
+        when(channelResolver.fromUri(anyString())).thenReturn(Maybe.<Channel>nothing());
+        when(progressStore.progressForTask(anyString())).thenReturn(Optional.absent());
+
         bootstrapper.loadAllIntoListener(searcher);
         reloader.kickOffBootstrap();
         testSearcher();

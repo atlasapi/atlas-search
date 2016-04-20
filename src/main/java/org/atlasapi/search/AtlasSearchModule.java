@@ -1,7 +1,5 @@
 package org.atlasapi.search;
 
-import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
-
 import java.io.File;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -17,10 +15,10 @@ import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.audit.PersistenceAuditLog;
 import org.atlasapi.persistence.content.ContentCategory;
-import org.atlasapi.persistence.content.ContentResolver;
 import org.atlasapi.persistence.content.LookupResolvingContentResolver;
 import org.atlasapi.persistence.content.cassandra.CassandraContentStore;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.MongoProgressStore;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.persistence.content.mongo.MongoPersonStore;
@@ -39,8 +37,14 @@ import org.atlasapi.search.www.BackupController;
 import org.atlasapi.search.www.ContentIndexController;
 import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
-import org.joda.time.Duration;
-import org.springframework.context.annotation.Bean;
+
+import com.metabroadcast.common.health.HealthProbe;
+import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
+import com.metabroadcast.common.properties.Configurer;
+import com.metabroadcast.common.scheduling.RepetitionRules;
+import com.metabroadcast.common.scheduling.SimpleScheduler;
+import com.metabroadcast.common.webapp.health.HealthController;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
@@ -50,14 +54,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.metabroadcast.common.health.HealthProbe;
-import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
-import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
-import com.metabroadcast.common.properties.Configurer;
-import com.metabroadcast.common.scheduling.RepetitionRules;
-import com.metabroadcast.common.scheduling.SimpleScheduler;
-import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.Mongo;
+import com.mongodb.MongoOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.netflix.astyanax.AstyanaxContext;
@@ -67,7 +65,10 @@ import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.thrift.ThriftFamilyFactory;
-import com.mongodb.MongoOptions;
+import org.joda.time.Duration;
+import org.springframework.context.annotation.Bean;
+
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
 public class AtlasSearchModule extends WebAwareModule {
 
@@ -169,59 +170,80 @@ public class AtlasSearchModule extends WebAwareModule {
 	}
     @Bean
     ContentBootstrapper mongoBootstrapper() {
-        
-        ContentListingCriteria criteria = defaultCriteria()
+        ContentListingCriteria.Builder criteriaBuilder = defaultCriteria()
                 .forPublishers(ImmutableSet.<Publisher>builder()
                         .add(Publisher.PA) 
                         .addAll(Publisher.all())
                         .build()
                         .asList()
-                        )
-                .forContent(ImmutableSet.of(ContentCategory.CONTAINER, ContentCategory.TOP_LEVEL_ITEM))
-                .build();
-        
-        ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria);
-        bootstrapper.withContentListers(new MongoContentLister(mongo(), contentResolver()));
+                )
+                .forContent(ImmutableSet.of(
+                        ContentCategory.CONTAINER, ContentCategory.TOP_LEVEL_ITEM
+                ));
+
+        ContentBootstrapper.BuildStep bootstrapperBuilder = ContentBootstrapper.builder()
+                .withTaskName("owl-search-bootstrap-mongo")
+                .withProgressStore(progressStore())
+                .withContentLister(new MongoContentLister(mongo(), contentResolver()))
+                .withCriteriaBuilder(criteriaBuilder);
+
         if (Boolean.valueOf(enablePeople)) {
-            LookupEntryStore entryStore = new MongoLookupEntryStore(mongo().collection("peopleLookup"), new DummyPersistenceAuditLog(), readPreference());
-            bootstrapper.withPeopleListers(new MongoPersonStore(mongo(), TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore), entryStore, new DummyPersistenceAuditLog()));
+            LookupEntryStore entryStore = new MongoLookupEntryStore(
+                    mongo().collection("peopleLookup"),
+                    new DummyPersistenceAuditLog(),
+                    readPreference()
+            );
+            MongoPersonStore personStore = new MongoPersonStore(
+                    mongo(),
+                    TransitiveLookupWriter.explicitTransitiveLookupWriter(entryStore),
+                    entryStore,
+                    new DummyPersistenceAuditLog()
+            );
+            bootstrapperBuilder.withPeopleLister(personStore);
         }
-        return bootstrapper;
+
+        return bootstrapperBuilder.build();
     }
     
     @Bean
     ContentBootstrapper cassandraBootstrapper() {
-        ContentBootstrapper bootstrapper = new ContentBootstrapper();
-        bootstrapper.withContentListers(cassandra());
-        return bootstrapper;
+        return ContentBootstrapper.builder()
+                .withTaskName("owl-search-bootstrap-cassandra")
+                .withProgressStore(progressStore())
+                .withContentLister(cassandra())
+                .build();
     }
 
     @Bean
     ContentBootstrapper musicBootstrapper() {
-        List<Publisher> musicPublishers = ImmutableList.of(Publisher.BBC_MUSIC, Publisher.SPOTIFY, 
-            Publisher.YOUTUBE, Publisher.RDIO, Publisher.SOUNDCLOUD, 
-            Publisher.AMAZON_UK, Publisher.ITUNES);
-        ContentListingCriteria criteria = defaultCriteria()
+        List<Publisher> musicPublishers = ImmutableList.of(
+                Publisher.BBC_MUSIC, Publisher.SPOTIFY, Publisher.YOUTUBE, Publisher.RDIO,
+                Publisher.SOUNDCLOUD, Publisher.AMAZON_UK, Publisher.ITUNES
+        );
+
+        ContentListingCriteria.Builder criteriaBuilder = defaultCriteria()
                 .forContent(ContentCategory.TOP_LEVEL_ITEM)
-                .forPublishers(musicPublishers )
+                .forPublishers(musicPublishers);
+
+        return ContentBootstrapper.builder()
+                .withTaskName("owl-search-bootstrap-music")
+                .withProgressStore(progressStore())
+                .withContentLister(new MongoContentLister(mongo(), contentResolver()))
+                .withCriteriaBuilder(criteriaBuilder)
                 .build();
-        ContentBootstrapper bootstrapper = new ContentBootstrapper(criteria );
-        bootstrapper.withContentListers(new MongoContentLister(mongo(), 
-                                    contentResolver()));
-        return bootstrapper;
     }
 
     public @Bean MongoContentResolver contentResolver() {
         return new MongoContentResolver(mongo(), contentLookupEntryStore());
     }
+
     public @Bean ChannelResolver channelResolver() {
         return new MongoChannelStore(mongo(), mongoChannelGroupStore(), mongoChannelGroupStore());
     }
-    
     public @Bean MongoChannelGroupStore mongoChannelGroupStore() {
         return new MongoChannelGroupStore(mongo());
     }
-    
+
 	public @Bean DatabasedMongo mongo() {
 		try {
             MongoOptions options = new MongoOptions();
@@ -261,6 +283,11 @@ public class AtlasSearchModule extends WebAwareModule {
 			throw new RuntimeException(e);
 		}
 	}
+
+    @Bean
+    public MongoProgressStore progressStore() {
+        return new MongoProgressStore(mongo());
+    }
     
     private List<ServerAddress> mongoHosts() {
         Splitter splitter = Splitter.on(",").omitEmptyStrings().trimResults();
@@ -298,6 +325,5 @@ public class AtlasSearchModule extends WebAwareModule {
         public void logNoWrite(LookupEntry lookupEntry) {
             // DO NOTHING
         }
-        
-    };
+    }
 }
