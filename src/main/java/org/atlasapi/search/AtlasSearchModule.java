@@ -140,14 +140,14 @@ public class AtlasSearchModule extends WebAwareModule {
 		bind("/index", new ContentIndexController(new LookupResolvingContentResolver(contentResolver, lookupEntryStore), index));
 		bind("/system/backup", new BackupController(index));
 		
-		mongoBootstrapper.start();
+		mongoBootstrapper.startAsync();
 		
 		if(cassandraBootstrapper != null) {
-		    cassandraBootstrapper.start();
+		    cassandraBootstrapper.startAsync();
 		}
 		
 		if(musicBootStrapper != null) {
-		    musicBootStrapper.start();
+		    musicBootStrapper.startAsync();
 		}
 	}
 	
