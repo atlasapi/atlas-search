@@ -1,7 +1,6 @@
 package org.atlasapi.search;
 
 import java.io.File;
-import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,10 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.MongoOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.netflix.astyanax.AstyanaxContext;
@@ -295,11 +291,7 @@ public class AtlasSearchModule extends WebAwareModule {
 
             @Override
             public ServerAddress apply(String input) {
-                try {
-                    return new ServerAddress(input, mongoDbPort);
-                } catch (Exception e) {
-                    return null;
-                }
+                return new ServerAddress(input, mongoDbPort);
             }
         }), Predicates.notNull()));
     }
