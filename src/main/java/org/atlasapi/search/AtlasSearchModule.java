@@ -55,6 +55,8 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.mongodb.Mongo;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
@@ -246,11 +248,9 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	public @Bean DatabasedMongo mongo() {
 		try {
-            MongoOptions options = new MongoOptions();
-            options.autoConnectRetry = true;
-            Mongo mongo = new Mongo(mongoHosts(), options);
-            mongo.setReadPreference(readPreference());
-            return new DatabasedMongo(mongo, mongoDbName);
+            MongoClient mongoClient = new MongoClient(mongoHosts());
+            mongoClient.setReadPreference(readPreference());
+            return new DatabasedMongo(mongoClient, mongoDbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -297,7 +297,7 @@ public class AtlasSearchModule extends WebAwareModule {
             public ServerAddress apply(String input) {
                 try {
                     return new ServerAddress(input, mongoDbPort);
-                } catch (UnknownHostException e) {
+                } catch (Exception e) {
                     return null;
                 }
             }
