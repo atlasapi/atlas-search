@@ -13,8 +13,6 @@
  permissions and limitations under the License. */
 package org.atlasapi.search.searcher;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,44 +22,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
-import javax.annotation.Nullable;
-
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.NumericField;
-import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.IndexCommit;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
-import org.apache.lucene.index.SnapshotDeletionPolicy;
-import org.apache.lucene.index.IndexWriter.MaxFieldLength;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause.Occur;
-import org.apache.lucene.search.BooleanFilter;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.ConstantScoreQuery;
-import org.apache.lucene.search.Filter;
-import org.apache.lucene.search.FilterClause;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.Searcher;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TermsFilter;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopScoreDocCollector;
-import org.apache.lucene.search.function.CustomScoreQuery;
-import org.apache.lucene.search.function.IntFieldSource;
-import org.apache.lucene.search.function.ValueSourceQuery;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MMapDirectory;
-import org.apache.lucene.util.Version;
 import org.atlasapi.media.channel.Channel;
 import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.entity.Broadcast;
@@ -75,14 +39,19 @@ import org.atlasapi.media.entity.LookupRef;
 import org.atlasapi.media.entity.Person;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.media.entity.Series;
+import org.atlasapi.media.entity.Song;
+import org.atlasapi.media.entity.Specialization;
+import org.atlasapi.media.entity.simple.ContentIdentifier;
 import org.atlasapi.persistence.content.KnownTypeContentResolver;
 import org.atlasapi.search.DebuggableContentSearcher;
 import org.atlasapi.search.model.SearchQuery;
 import org.atlasapi.search.model.SearchResults;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.metabroadcast.common.base.Maybe;
+import com.metabroadcast.common.query.Selection;
+import com.metabroadcast.common.time.SystemClock;
+import com.metabroadcast.common.time.Timestamp;
+import com.metabroadcast.common.time.Timestamper;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -99,16 +68,44 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import com.metabroadcast.common.base.Maybe;
-import com.metabroadcast.common.query.Selection;
-import com.metabroadcast.common.time.SystemClock;
-import com.metabroadcast.common.time.Timestamp;
-import com.metabroadcast.common.time.Timestamper;
-
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.NumericField;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexCommit;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriter.MaxFieldLength;
+import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
+import org.apache.lucene.index.SnapshotDeletionPolicy;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanFilter;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
+import org.apache.lucene.search.Filter;
+import org.apache.lucene.search.FilterClause;
 import org.apache.lucene.search.FilteredQuery;
-import org.atlasapi.media.entity.Song;
-import org.atlasapi.media.entity.Specialization;
-import org.atlasapi.media.entity.simple.ContentIdentifier;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermsFilter;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.function.CustomScoreQuery;
+import org.apache.lucene.search.function.IntFieldSource;
+import org.apache.lucene.search.function.ValueSourceQuery;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.util.Version;
+import org.joda.time.DateTime;
+import org.joda.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LuceneContentIndex implements ContentChangeListener, DebuggableContentSearcher {
     
@@ -446,7 +443,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             
             return true;
         }
-        return false;
+
+        // We want to special case this publisher and index brands with no children because this
+        // ingester is not currently ingesting episodes
+        return container.getPublisher() == Publisher.RADIO_TIMES_UPCOMING;
     }
     
     private Optional<DateTime> hourOfClosestBroadcastForItems(Iterable<Item> items, Timestamp now) {
