@@ -1,8 +1,5 @@
 package org.atlasapi.search.www;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
-
 import java.io.IOException;
 
 import javax.servlet.ServletException;
@@ -12,27 +9,24 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.persistence.content.ContentCategory;
 import org.atlasapi.persistence.content.ContentResolver;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
 import org.atlasapi.persistence.content.listing.MongoProgressStore;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
-import org.atlasapi.persistence.content.mongo.MongoPersonStore;
-import org.atlasapi.persistence.lookup.TransitiveLookupWriter;
-import org.atlasapi.persistence.lookup.entry.LookupEntryStore;
-import org.atlasapi.persistence.lookup.mongo.MongoLookupEntryStore;
 import org.atlasapi.search.AtlasSearchModule;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
 
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
 
 @Controller
@@ -69,6 +63,11 @@ public class ContentIndexController extends HttpServlet {
             index.afterContentChange();
         }
         if(publisher!=null){
+            AtlasSearchModule atlasSearchModule = new AtlasSearchModule();
+            mongo = atlasSearchModule.mongo();
+            progressStore = atlasSearchModule.progressStore();
+            mongoContentResolver = atlasSearchModule.contentResolver();
+
             ContentListingCriteria.Builder criteriaBuilder = defaultCriteria()
                     .forPublishers(ImmutableSet.<Publisher>builder()
                             .add(Publisher.valueOf(publisher))
@@ -79,7 +78,7 @@ public class ContentIndexController extends HttpServlet {
             ContentBootstrapper.BuildStep bootstrapperBuilder = ContentBootstrapper.builder()
                     .withTaskName("owl-search-bootstrap-mongo-api-request")
                     .withProgressStore(progressStore)
-                    .withContentLister(new MongoContentLister(mongo, mongoContentResolver))
+                    .withContentLister(new MongoContentLister(this.mongo, mongoContentResolver))
                     .withCriteriaBuilder(criteriaBuilder);
 
             ContentBootstrapper build = bootstrapperBuilder.build();
