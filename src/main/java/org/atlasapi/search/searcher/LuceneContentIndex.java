@@ -343,7 +343,10 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             indexWriter.updateDocument(new Term(FIELD_CONTENT_URI, content.getCanonicalUri()), doc);
             log.trace("Done updating document");
         } else {
-            log.info(content.getClass()+" with title {} and uri {} not added due to null elements", content.getTitle(), content.getCanonicalUri());
+            log.info("{} with title {} and uri {} not added due to null elements",
+                    content.getClass().getSimpleName(),
+                    content.getTitle(),
+                    content.getCanonicalUri());
         }
     }
     

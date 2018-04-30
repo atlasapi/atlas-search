@@ -68,6 +68,7 @@ public class ContentBootstrapper {
     }
 
     public void loadAllIntoListener(final ContentChangeListener listener) {
+        log.info("Loading content into listener for task " + taskName);
         listener.beforeContentChange();
         try {
             bootstrapPeople(listener);

@@ -92,7 +92,7 @@ public class AtlasSearchModule extends WebAwareModule {
     private final String backupDirectory = Strings.emptyToNull(Configurer.get("backup.directory").get());
 
     private final MongoSecondaryReadPreferenceBuilder secondaryReadPreferenceBuilder = new MongoSecondaryReadPreferenceBuilder();
-    
+
     @Override
 	public void configure() {
 	    MongoChannelGroupStore channelGroupStore = new MongoChannelGroupStore(mongo());
@@ -101,7 +101,7 @@ public class AtlasSearchModule extends WebAwareModule {
 	    BroadcastBooster booster = new ChannelGroupBroadcastChannelBooster(mongoChannelGroupStore(), channelResolver(), priorityChannelGroup);
 	    CachingChannelStore channelStore = new CachingChannelStore(new MongoChannelStore(mongo(), channelGroupStore, channelGroupStore));
 	    SimpleScheduler simplescheduler = new SimpleScheduler();
-	    	    
+
 	    channelStore.start();
         LuceneContentIndex index = new LuceneContentIndex(
                 new File(luceneDir), 
@@ -110,45 +110,46 @@ public class AtlasSearchModule extends WebAwareModule {
                 channelStore, 
                 backupDirectory
         );
-        
+
         IndexBackupScheduledTask indexBackupTask = new IndexBackupScheduledTask(index);
         simplescheduler.schedule(indexBackupTask, RepetitionRules.every(Duration.standardHours(24)));
-        
+
         Builder<HealthProbe> probes = ImmutableList.builder();
-        
+
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
         ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
         probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper));
-        
+
         ReloadingContentBootstrapper cassandraBootstrapper = null;
         if(Boolean.valueOf(enableCassandra)) {
             cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(),scheduler,  Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
             probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper));
         }
-        
+
         ReloadingContentBootstrapper musicBootStrapper = null;
         if(Boolean.valueOf(enableMusic)) {
             musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
             probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper));
         }
-        
+
+        // TODO: these need to be created using @Bean methods for any autowiring to work
 		bind("/system/health", new HealthController(probes.build()));
 		bind("/titles", new SearchServlet(new JsonSearchResultsView(), index));
 		bind("/debug/document", new DocumentController(index));
 		bind("/index", new ContentIndexController(new LookupResolvingContentResolver(contentResolver, lookupEntryStore), index));
 		bind("/system/backup", new BackupController(index));
-		
+
 		mongoBootstrapper.startAsync();
-		
+
 		if(cassandraBootstrapper != null) {
 		    cassandraBootstrapper.startAsync();
 		}
-		
+
 		if(musicBootStrapper != null) {
 		    musicBootStrapper.startAsync();
 		}
 	}
-	
+
 	private ReadPreference readPreference() {
     	ImmutableList.Builder<String> tags = ImmutableList.builder();
         if (mongoTag != null) {
