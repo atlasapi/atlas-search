@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.netflix.astyanax.AstyanaxContext;
@@ -244,7 +245,9 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	public @Bean DatabasedMongo mongo() {
 		try {
-            MongoClient mongoClient = new MongoClient(mongoHosts());
+            MongoClientOptions.Builder options = MongoClientOptions.builder();
+            options.socketKeepAlive(true);
+            MongoClient mongoClient = new MongoClient(mongoHosts(), options.build());
             mongoClient.setReadPreference(readPreference());
             return new DatabasedMongo(mongoClient, mongoDbName);
 		} catch (Exception e) {
