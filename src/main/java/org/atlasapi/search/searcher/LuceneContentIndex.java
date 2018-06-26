@@ -226,6 +226,22 @@ public class LuceneContentIndex implements ContentChangeListener, DebuggableCont
             commitWriter();
         }
     }
+
+    public void contentChange(Described content) {
+        log.info("Processing changed content");
+        try {
+            if (FILTER_SEARCHABLE_CONTENT.apply(content)) {
+                try {
+                    log.info("Processing content {}", content.getCanonicalUri());
+                    process(content);
+                } catch (Exception e) {
+                    log.error("Failed to index document " + content.getCanonicalUri(), e);
+                }
+            }
+        } finally {
+            commitWriter();
+        }
+    }
     
     public synchronized void backup() throws IOException {
         IndexCommit commit = snapshotter.snapshot();
