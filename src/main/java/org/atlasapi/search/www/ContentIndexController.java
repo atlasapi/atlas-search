@@ -20,9 +20,9 @@ import org.atlasapi.search.searcher.LuceneContentIndex;
 
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +76,7 @@ public class ContentIndexController extends HttpServlet {
             }
             index.afterContentChange();
             log.info("done");
+            response.getWriter().write("DONE");
         }
         if (publisher != null){
             String taskName = "owl-search-bootstrap-mongo-api-request" + publisher;
@@ -97,9 +98,15 @@ public class ContentIndexController extends HttpServlet {
                     .withCriteriaBuilder(criteriaBuilder);
 
             ContentBootstrapper build = bootstrapperBuilder.build();
+
+            response.setStatus(HttpStatus.SC_ACCEPTED);
+            response.getWriter().write("Request to reindex " + publisher + " was accepted. "
+                                       + "All content will be re-indexed.<br>"
+                                       + "You can view progress from the listerProgress collection"
+                                       + "in mongoDb. _id:\"" + taskName + "\"");
+
             build.loadAllIntoListener(index);
             log.info("Request to re-index publisher {} Finished", publisher);
         }
-        response.getWriter().write("DONE");
     }
 }
