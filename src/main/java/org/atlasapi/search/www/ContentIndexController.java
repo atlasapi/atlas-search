@@ -10,6 +10,7 @@ import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentResolver;
 import org.atlasapi.persistence.content.listing.ContentListingCriteria;
+import org.atlasapi.persistence.content.listing.ContentListingProgress;
 import org.atlasapi.persistence.content.listing.MongoProgressStore;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
@@ -19,6 +20,7 @@ import org.atlasapi.search.searcher.LuceneContentIndex;
 
 import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
@@ -76,7 +78,11 @@ public class ContentIndexController extends HttpServlet {
             log.info("done");
         }
         if (publisher != null){
-            log.info("Request to index publisher {}", publisher);
+            String taskName = "owl-search-bootstrap-mongo-api-request" + publisher;
+            log.info("Request to re-index publisher {}", publisher);
+            //start from scratch
+            progressStore.storeProgress(taskName, ContentListingProgress.START);
+
             ContentListingCriteria.Builder criteriaBuilder = defaultCriteria()
                     .forPublishers(ImmutableSet.<Publisher>builder()
                             .add(Publisher.valueOf(publisher))
@@ -85,13 +91,14 @@ public class ContentIndexController extends HttpServlet {
                     );
 
             ContentBootstrapper.BuildStep bootstrapperBuilder = ContentBootstrapper.builder()
-                    .withTaskName("owl-search-bootstrap-mongo-api-request")
+                    .withTaskName(taskName)
                     .withProgressStore(progressStore)
                     .withContentLister(new MongoContentLister(mongo, mongoContentResolver))
                     .withCriteriaBuilder(criteriaBuilder);
 
             ContentBootstrapper build = bootstrapperBuilder.build();
             build.loadAllIntoListener(index);
+            log.info("Request to re-index publisher {} Finished", publisher);
         }
         response.getWriter().write("DONE");
     }
