@@ -79,7 +79,7 @@ public class ContentIndexController extends HttpServlet {
             response.getWriter().write("DONE");
         }
         if (publisher != null){
-            String taskName = "owl-search-bootstrap-mongo-api-request" + publisher;
+            String taskName = "owl-search-bootstrap-mongo-api-request-" + publisher;
             log.info("Request to re-index publisher {}", publisher);
             //start from scratch
             progressStore.storeProgress(taskName, ContentListingProgress.START);
@@ -104,9 +104,10 @@ public class ContentIndexController extends HttpServlet {
                                        + "All content will be re-indexed.<br>"
                                        + "You can view progress from the listerProgress collection"
                                        + "in mongoDb. _id:\"" + taskName + "\"");
+            response.getWriter().flush();
 
             build.loadAllIntoListener(index);
-            log.info("Request to re-index publisher {} Finished", publisher);
+            log.info("Publisher {} has been fully re-indexed", publisher);
         }
     }
 }
