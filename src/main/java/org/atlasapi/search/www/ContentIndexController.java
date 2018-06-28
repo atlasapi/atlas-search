@@ -103,7 +103,10 @@ public class ContentIndexController extends HttpServlet {
             response.getWriter().write("Request to reindex " + publisher + " was accepted. "
                                        + "All content will be re-indexed.<br>"
                                        + "You can view progress from the listerProgress collection"
-                                       + "in mongoDb. _id:\"" + taskName + "\"");
+                                       + "in mongoDb. _id:\"" + taskName + "\"<br>"
+                                       + "You can view a better progress my monitoring the log from"
+                                       + "inside atlas-search at "
+                                       + "less /usr/local/jetties/atlas-search/work/atlas-search.log");
             response.getWriter().flush();
 
             build.loadAllIntoListener(index);
