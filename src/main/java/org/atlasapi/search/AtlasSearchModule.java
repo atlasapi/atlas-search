@@ -1,11 +1,32 @@
 package org.atlasapi.search;
 
-import java.io.File;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.metabroadcast.common.health.HealthProbe;
+import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import com.metabroadcast.common.persistence.mongo.DatabasedMongoClient;
+import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
+import com.metabroadcast.common.properties.Configurer;
+import com.metabroadcast.common.scheduling.RepetitionRules;
+import com.metabroadcast.common.scheduling.SimpleScheduler;
+import com.metabroadcast.common.webapp.health.HealthController;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.ReadPreference;
+import com.mongodb.ServerAddress;
+import com.netflix.astyanax.AstyanaxContext;
+import com.netflix.astyanax.Keyspace;
+import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
+import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
+import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
+import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
+import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 import org.atlasapi.media.channel.CachingChannelStore;
 import org.atlasapi.media.channel.ChannelResolver;
 import org.atlasapi.media.channel.MongoChannelGroupStore;
@@ -36,36 +57,14 @@ import org.atlasapi.search.www.BackupController;
 import org.atlasapi.search.www.ContentIndexController;
 import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
-
-import com.metabroadcast.common.health.HealthProbe;
-import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
-import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
-import com.metabroadcast.common.properties.Configurer;
-import com.metabroadcast.common.scheduling.RepetitionRules;
-import com.metabroadcast.common.scheduling.SimpleScheduler;
-import com.metabroadcast.common.webapp.health.HealthController;
-
-import com.google.common.base.Function;
-import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.ReadPreference;
-import com.mongodb.ServerAddress;
-import com.netflix.astyanax.AstyanaxContext;
-import com.netflix.astyanax.Keyspace;
-import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
-import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
-import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
-import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
-import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
+
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
@@ -166,7 +165,12 @@ public class AtlasSearchModule extends WebAwareModule {
 	
 	@Bean 
 	MongoLookupEntryStore contentLookupEntryStore() {
-	    return new MongoLookupEntryStore(mongo().collection("lookup"), new DummyPersistenceAuditLog(), readPreference());
+	    return new MongoLookupEntryStore(
+	            databasedMongoClient(),
+                "lookup",
+                new DummyPersistenceAuditLog(),
+                readPreference()
+        );
 	}
     @Bean
     ContentBootstrapper mongoBootstrapper() {
@@ -189,7 +193,8 @@ public class AtlasSearchModule extends WebAwareModule {
 
         if (Boolean.valueOf(enablePeople)) {
             LookupEntryStore entryStore = new MongoLookupEntryStore(
-                    mongo().collection("peopleLookup"),
+                    databasedMongoClient(),
+                    "peopleLookup",
                     new DummyPersistenceAuditLog(),
                     readPreference()
             );
@@ -246,15 +251,25 @@ public class AtlasSearchModule extends WebAwareModule {
 
 	public @Bean DatabasedMongo mongo() {
 		try {
-            MongoClientOptions.Builder options = MongoClientOptions.builder();
-            options.socketKeepAlive(true);
-            MongoClient mongoClient = new MongoClient(mongoHosts(), options.build());
-            mongoClient.setReadPreference(readPreference());
-            return new DatabasedMongo(mongoClient, mongoDbName);
+            return new DatabasedMongo(mongoClient(), mongoDbName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
+
+    public @Bean DatabasedMongoClient databasedMongoClient() {
+        try {
+            return new DatabasedMongoClient(mongoClient(), mongoDbName);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+	public @Bean MongoClient mongoClient() {
+        MongoClientOptions.Builder options = MongoClientOptions.builder();
+        options.readPreference(readPreference());
+        return new MongoClient(mongoHosts(), options.build());
+    }
     
     public @Bean CassandraContentStore cassandra() {
 		try {
