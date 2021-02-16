@@ -7,7 +7,7 @@
     <packaging>war</packaging>
     <name>Atlas Search</name>
     <url>http://docs.atlasapi.org</url>
-    <version>5.2-SNAPSHOT</version>
+    <version>5.0-SNAPSHOT</version>
     <description>Atlas 3.0 API</description>
     <build>
         <finalName>atlas-search</finalName>
@@ -208,12 +208,12 @@
         <dependency>
             <groupId>org.atlasapi</groupId>
             <artifactId>atlas-model</artifactId>
-            <version>5.2-SNAPSHOT</version>
+            <version>${atlas.version}</version>
         </dependency>
         <dependency>
             <groupId>org.atlasapi</groupId>
             <artifactId>atlas-persistence</artifactId>
-            <version>5.2-SNAPSHOT</version>
+            <version>${atlas.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
