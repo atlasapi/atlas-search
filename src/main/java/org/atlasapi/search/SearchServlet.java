@@ -1,20 +1,5 @@
 package org.atlasapi.search;
 
-import java.io.IOException;
-
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.atlasapi.media.entity.Publisher;
-import org.atlasapi.search.model.SearchQuery;
-import org.atlasapi.search.model.SearchResultsError;
-import org.atlasapi.search.view.SearchResultsView;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.metabroadcast.common.base.Maybe;
@@ -23,8 +8,21 @@ import com.metabroadcast.common.media.MimeType;
 import com.metabroadcast.common.query.Selection;
 import com.metabroadcast.common.query.Selection.SelectionBuilder;
 import com.metabroadcast.common.text.MoreStrings;
-import java.util.Arrays;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.media.entity.Specialization;
+import org.atlasapi.search.model.SearchQuery;
+import org.atlasapi.search.model.SearchResultsError;
+import org.atlasapi.search.view.SearchResultsView;
+
+import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Arrays;
 
 public class SearchServlet extends HttpServlet {
 
@@ -41,6 +39,7 @@ public class SearchServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        log.info(Utils.fullRequestURL(request));
         String title = request.getParameter("title");
         if (title == null) {
             view.renderError(request, response, new SearchResultsError(HttpStatusCode.BAD_REQUEST, "Missing required parameter 'title'"));

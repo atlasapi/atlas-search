@@ -1,11 +1,9 @@
 package org.atlasapi.search.www;
 
-import java.io.IOException;
-
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
+import org.apache.http.HttpStatus;
 import org.atlasapi.media.entity.Described;
 import org.atlasapi.media.entity.Publisher;
 import org.atlasapi.persistence.content.ContentResolver;
@@ -15,18 +13,18 @@ import org.atlasapi.persistence.content.listing.MongoProgressStore;
 import org.atlasapi.persistence.content.mongo.MongoContentLister;
 import org.atlasapi.persistence.content.mongo.MongoContentResolver;
 import org.atlasapi.search.AtlasSearchModule;
+import org.atlasapi.search.Utils;
 import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.LuceneContentIndex;
-
-import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
@@ -62,6 +60,7 @@ public class ContentIndexController extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
+        log.info(Utils.fullRequestURL(request));
         String uri = request.getParameter(URI_PARAMETER);
         String publisher = request.getParameter(PUBLISHER_PARAMETER);
 

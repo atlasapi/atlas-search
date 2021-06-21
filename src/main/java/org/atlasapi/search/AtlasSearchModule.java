@@ -13,7 +13,6 @@ import com.metabroadcast.common.persistence.mongo.DatabasedMongo;
 import com.metabroadcast.common.persistence.mongo.DatabasedMongoClient;
 import com.metabroadcast.common.persistence.mongo.MongoSecondaryReadPreferenceBuilder;
 import com.metabroadcast.common.properties.Configurer;
-import com.metabroadcast.common.scheduling.RepetitionRules;
 import com.metabroadcast.common.scheduling.SimpleScheduler;
 import com.metabroadcast.common.webapp.health.HealthController;
 import com.mongodb.MongoClient;
@@ -50,21 +49,15 @@ import org.atlasapi.search.loader.ContentBootstrapper;
 import org.atlasapi.search.searcher.BroadcastBooster;
 import org.atlasapi.search.searcher.ChannelGroupBroadcastChannelBooster;
 import org.atlasapi.search.searcher.LuceneContentIndex;
-import org.atlasapi.search.searcher.LuceneSearcherProbe;
-import org.atlasapi.search.searcher.ReloadingContentBootstrapper;
 import org.atlasapi.search.view.JsonSearchResultsView;
 import org.atlasapi.search.www.BackupController;
 import org.atlasapi.search.www.ContentIndexController;
 import org.atlasapi.search.www.DocumentController;
 import org.atlasapi.search.www.WebAwareModule;
-import org.joda.time.Duration;
 import org.springframework.context.annotation.Bean;
 
 import java.io.File;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static org.atlasapi.persistence.content.listing.ContentListingCriteria.defaultCriteria;
 
@@ -111,26 +104,26 @@ public class AtlasSearchModule extends WebAwareModule {
                 backupDirectory
         );
 
-        IndexBackupScheduledTask indexBackupTask = new IndexBackupScheduledTask(index);
-        simplescheduler.schedule(indexBackupTask, RepetitionRules.every(Duration.standardHours(24)));
+//        IndexBackupScheduledTask indexBackupTask = new IndexBackupScheduledTask(index);
+//        simplescheduler.schedule(indexBackupTask, RepetitionRules.every(Duration.standardHours(24)));
 
         Builder<HealthProbe> probes = ImmutableList.builder();
 
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
-        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
-        probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper));
+//        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
+//        ReloadingContentBootstrapper mongoBootstrapper = new ReloadingContentBootstrapper(index, mongoBootstrapper(), scheduler, Boolean.valueOf(luceneIndexAtStartup), 180, TimeUnit.MINUTES);
+//        probes.add(new LuceneSearcherProbe("mongo-lucene", mongoBootstrapper));
 
-        ReloadingContentBootstrapper cassandraBootstrapper = null;
-        if(Boolean.valueOf(enableCassandra)) {
-            cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(),scheduler,  Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
-            probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper));
-        }
+//        ReloadingContentBootstrapper cassandraBootstrapper = null;
+//        if(Boolean.valueOf(enableCassandra)) {
+//            cassandraBootstrapper = new ReloadingContentBootstrapper(index, cassandraBootstrapper(),scheduler,  Boolean.valueOf(luceneIndexAtStartup), 7, TimeUnit.DAYS);
+//            probes.add(new LuceneSearcherProbe("cassandra-lucene", cassandraBootstrapper));
+//        }
 
-        ReloadingContentBootstrapper musicBootStrapper = null;
-        if(Boolean.valueOf(enableMusic)) {
-            musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
-            probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper));
-        }
+//        ReloadingContentBootstrapper musicBootStrapper = null;
+//        if(Boolean.valueOf(enableMusic)) {
+//            musicBootStrapper = new ReloadingContentBootstrapper(index, musicBootstrapper(), scheduler, true, 120, TimeUnit.MINUTES);
+//            probes.add(new LuceneSearcherProbe("mongo-music", musicBootStrapper));
+//        }
 
         // TODO: these need to be created using @Bean methods for any autowiring to work
 		bind("/system/health", new HealthController(probes.build()));
@@ -139,15 +132,15 @@ public class AtlasSearchModule extends WebAwareModule {
 		bind("/index", new ContentIndexController(new LookupResolvingContentResolver(contentResolver, lookupEntryStore), index));
 		bind("/system/backup", new BackupController(index));
 
-		mongoBootstrapper.startAsync();
-
-		if(cassandraBootstrapper != null) {
-		    cassandraBootstrapper.startAsync();
-		}
-
-		if(musicBootStrapper != null) {
-		    musicBootStrapper.startAsync();
-		}
+//		mongoBootstrapper.startAsync();
+//
+//		if(cassandraBootstrapper != null) {
+//		    cassandraBootstrapper.startAsync();
+//		}
+//
+//		if(musicBootStrapper != null) {
+//		    musicBootStrapper.startAsync();
+//		}
 	}
 
 	private ReadPreference readPreference() {
